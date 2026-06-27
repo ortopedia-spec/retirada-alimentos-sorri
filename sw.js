@@ -12,12 +12,12 @@
  * - Requisições externas e chamadas à API: nunca armazenadas.
  * - Exclusão automática de versões antigas do cache.
  *
- * Versão: 2.0
+ * Versão: 3.0
  * Data: 27/06/2026
  * ============================================================================
  */
 
-const CACHE_NAME = 'retirada-alimentos-static-v2';
+const CACHE_NAME = 'retirada-alimentos-static-v3';
 
 const STATIC_ASSETS = [
   './',
@@ -25,10 +25,11 @@ const STATIC_ASSETS = [
   './css/styles.css',
   './js/config.js',
   './js/api.js',
+  './js/mobile-touch.js',
   './js/app.js',
   './manifest.webmanifest',
   './assets/icons/icon.svg',
-  './assets/logo/logo.svg'
+  './assets/logo/sorri-bauru-header.png'
 ];
 
 /**
@@ -78,8 +79,8 @@ self.addEventListener('fetch', function (event) {
   const request = event.request;
 
   /*
-   * O Service Worker só deve tratar requisições GET.
-   * Requisições POST da retirada nunca devem ser interceptadas.
+   * O Service Worker só trata requisições GET.
+   * Requisições POST de retirada nunca são interceptadas.
    */
   if (request.method !== 'GET') {
     return;
@@ -105,8 +106,8 @@ self.addEventListener('fetch', function (event) {
   }
 
   /*
-   * Navegação entre páginas:
-   * tenta buscar a versão atual na rede e usa o cache apenas como alternativa.
+   * Navegação:
+   * tenta carregar a versão atual da rede e utiliza o cache como alternativa.
    */
   if (request.mode === 'navigate') {
     event.respondWith(
@@ -132,7 +133,7 @@ self.addEventListener('fetch', function (event) {
     pathname.endsWith('.webmanifest');
 
   /*
-   * Arquivos que podem mudar durante o desenvolvimento:
+   * HTML, CSS, JavaScript e manifesto:
    * rede primeiro, cache como alternativa.
    */
   if (arquivoAtualizavel) {
@@ -151,7 +152,7 @@ self.addEventListener('fetch', function (event) {
   }
 
   /*
-   * Imagens, ícones e demais arquivos estáticos:
+   * Imagens, ícones e outros arquivos estáticos:
    * cache primeiro, rede como alternativa.
    */
   event.respondWith(

@@ -30,9 +30,6 @@
 
   <body>
     <div class="app-shell">
-      <!-- ================================================================
-           CABEÇALHO INSTITUCIONAL
-           ================================================================ -->
       <header class="app-header">
         <div class="institutional-banner">
           <img
@@ -48,13 +45,7 @@
         </div>
       </header>
 
-      <!-- ================================================================
-           CONTEÚDO PRINCIPAL
-           ================================================================ -->
       <main id="app" class="app-main">
-        <!-- ==============================================================
-             TELA INICIAL
-             ============================================================== -->
         <section
           id="screen-idle"
           class="screen screen-active"
@@ -62,7 +53,9 @@
         >
           <div class="entry-panel">
             <div class="entry-copy">
-              <span class="screen-eyebrow">Identificação</span>
+              <span class="screen-eyebrow">
+                Identificação
+              </span>
 
               <h2 id="initial-title">
                 Digite a matrícula
@@ -236,9 +229,6 @@
           </div>
         </section>
 
-        <!-- ==============================================================
-             TELA DE CARREGAMENTO
-             ============================================================== -->
         <section
           id="screen-loading"
           class="screen loading-screen"
@@ -255,9 +245,6 @@
           </h2>
         </section>
 
-        <!-- ==============================================================
-             TELA DO PARTICIPANTE
-             ============================================================== -->
         <section
           id="screen-participant"
           class="screen"
@@ -279,9 +266,6 @@
           ></div>
         </section>
 
-        <!-- ==============================================================
-             TELA DE RESULTADO
-             ============================================================== -->
         <section
           id="screen-result"
           class="screen"
@@ -318,9 +302,6 @@
       </main>
     </div>
 
-    <!-- ================================================================
-         BARRA DE SELEÇÃO
-         ================================================================ -->
     <div
       id="selection-bar"
       class="selection-bar"
@@ -339,9 +320,6 @@
       </button>
     </div>
 
-    <!-- ================================================================
-         CONFIRMAÇÃO DA RETIRADA
-         ================================================================ -->
     <div
       id="confirmation-sheet"
       class="sheet-backdrop"
@@ -381,9 +359,6 @@
       </section>
     </div>
 
-    <!-- ================================================================
-         LEITOR DE QR CODE
-         ================================================================ -->
     <div
       id="qr-sheet"
       class="sheet-backdrop"
@@ -422,9 +397,6 @@
       </section>
     </div>
 
-    <!-- ================================================================
-         MENSAGENS TEMPORÁRIAS
-         ================================================================ -->
     <div
       id="toast-region"
       class="toast-region"
@@ -432,11 +404,9 @@
       aria-atomic="true"
     ></div>
 
-    <!-- ================================================================
-         SCRIPTS
-         ================================================================ -->
     <script src="js/config.js"></script>
     <script src="js/api.js"></script>
+    <script src="js/mobile-touch.js"></script>
     <script src="js/app.js"></script>
   </body>
 </html>
