@@ -1,0 +1,1218 @@
+/**
+ * ============================================================================
+ * ESTILOS DA APLICAÇÃO
+ * ============================================================================
+ *
+ * Projeto:
+ * Controle de retirada de alimentos — Almoço Junino 2026
+ *
+ * Identidade:
+ * Sorri Bauru
+ *
+ * Versão: 2.0
+ * Data: 27/06/2026
+ * ============================================================================
+ */
+
+:root {
+  /* Identidade institucional */
+  --color-brand-red: #ed1c24;
+  --color-brand-orange: #f58220;
+  --color-brand-yellow: #ffd500;
+
+  /* Interface */
+  --color-primary: #155e75;
+  --color-primary-strong: #0f4556;
+  --color-primary-soft: #d8edf2;
+
+  --color-accent: #f58220;
+  --color-accent-soft: #fff0e5;
+
+  --color-success: #166534;
+  --color-success-soft: #dcfce7;
+
+  --color-warning: #a16207;
+  --color-warning-soft: #fef3c7;
+
+  --color-danger: #b42318;
+  --color-danger-soft: #fee4e2;
+
+  --color-background: #f4f7f8;
+  --color-surface: #ffffff;
+  --color-surface-strong: #edf4f5;
+
+  --color-text: #17252b;
+  --color-muted: #64747b;
+  --color-border: #d6e1e4;
+
+  --shadow-sm: 0 8px 22px rgba(18, 37, 43, 0.08);
+  --shadow-md: 0 18px 48px rgba(18, 37, 43, 0.16);
+  --shadow-brand: 0 14px 34px rgba(245, 130, 32, 0.12);
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+
+  --font-base:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+/* ==========================================================================
+   CONFIGURAÇÕES GERAIS
+   ========================================================================== */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: var(--color-background);
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(255, 213, 0, 0.10),
+      transparent 260px
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(245, 130, 32, 0.10),
+      transparent 320px
+    ),
+    linear-gradient(
+      180deg,
+      rgba(21, 94, 117, 0.08),
+      rgba(21, 94, 117, 0) 360px
+    ),
+    var(--color-background);
+
+  color: var(--color-text);
+  font-family: var(--font-base);
+  line-height: 1.4;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  min-height: 48px;
+  border: 0;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+button,
+.item-card,
+.entry-panel,
+.participant-card,
+.result-card {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 3px solid rgba(245, 130, 32, 0.65);
+  outline-offset: 3px;
+}
+
+.sr-only {
+  position: absolute;
+
+  width: 1px;
+  height: 1px;
+
+  padding: 0;
+  margin: -1px;
+
+  overflow: hidden;
+
+  clip: rect(0, 0, 0, 0);
+
+  white-space: nowrap;
+
+  border: 0;
+}
+
+/* ==========================================================================
+   ESTRUTURA PRINCIPAL
+   ========================================================================== */
+
+.app-shell {
+  width: min(100%, 820px);
+  min-height: 100vh;
+
+  margin: 0 auto;
+
+  padding:
+    calc(env(safe-area-inset-top) + var(--space-4))
+    var(--space-4)
+    calc(100px + env(safe-area-inset-bottom));
+}
+
+/* ==========================================================================
+   CABEÇALHO INSTITUCIONAL
+   ========================================================================== */
+
+.app-header {
+  display: grid;
+  gap: var(--space-3);
+
+  margin-bottom: var(--space-5);
+}
+
+.institutional-banner {
+  width: 100%;
+
+  padding: var(--space-3);
+
+  overflow: hidden;
+
+  border: 1px solid rgba(214, 225, 228, 0.85);
+  border-radius: var(--radius-lg);
+
+  background: rgba(255, 255, 255, 0.96);
+
+  box-shadow: var(--shadow-brand);
+}
+
+.institutional-banner-image {
+  display: block;
+
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+
+  object-fit: contain;
+  object-position: center;
+}
+
+.app-identification {
+  position: relative;
+
+  padding: var(--space-3) var(--space-4);
+
+  overflow: hidden;
+
+  border-radius: var(--radius-md);
+
+  background: rgba(255, 255, 255, 0.72);
+
+  backdrop-filter: blur(10px);
+}
+
+.app-identification::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+
+  width: 5px;
+
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      180deg,
+      var(--color-brand-red),
+      var(--color-brand-orange),
+      var(--color-brand-yellow)
+    );
+
+  content: "";
+}
+
+.app-identification h1 {
+  margin: 0;
+
+  font-size: clamp(1.12rem, 4.5vw, 1.45rem);
+  font-weight: 850;
+  letter-spacing: -0.015em;
+}
+
+.app-identification p {
+  margin: var(--space-1) 0 0;
+
+  color: var(--color-muted);
+
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   TELAS
+   ========================================================================== */
+
+.screen {
+  display: none;
+}
+
+.screen-active {
+  display: block;
+}
+
+/* ==========================================================================
+   PAINÉIS E CARTÕES PRINCIPAIS
+   ========================================================================== */
+
+.entry-panel,
+.participant-card,
+.result-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+
+  background: rgba(255, 255, 255, 0.96);
+
+  box-shadow: var(--shadow-sm);
+}
+
+.entry-panel {
+  padding: var(--space-5);
+}
+
+.entry-copy h2 {
+  margin: var(--space-1) 0 0;
+
+  font-size: clamp(1.55rem, 7vw, 2rem);
+  letter-spacing: -0.025em;
+}
+
+.entry-copy p,
+.muted-text {
+  margin: var(--space-1) 0 0;
+
+  color: var(--color-muted);
+}
+
+.screen-eyebrow,
+.card-eyebrow {
+  display: inline-block;
+
+  color: var(--color-primary);
+
+  font-size: 0.76rem;
+  font-weight: 850;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+/* ==========================================================================
+   ENTRADA DA MATRÍCULA
+   ========================================================================== */
+
+.matricula-input {
+  position: absolute;
+
+  width: 1px;
+  height: 1px;
+
+  opacity: 0;
+  pointer-events: none;
+}
+
+.matricula-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 92px;
+
+  margin: var(--space-5) 0;
+
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 213, 0, 0.08),
+      rgba(245, 130, 32, 0.04)
+    ),
+    var(--color-surface-strong);
+
+  color: var(--color-primary-strong);
+
+  font-size: clamp(2.4rem, 16vw, 4.9rem);
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.035em;
+
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+}
+
+/* ==========================================================================
+   TECLADO NUMÉRICO
+   ========================================================================== */
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.keypad-key,
+.keypad-action {
+  min-height: 68px;
+
+  border-radius: var(--radius-md);
+
+  background: var(--color-surface);
+  color: var(--color-text);
+
+  font-weight: 850;
+
+  box-shadow:
+    inset 0 0 0 1px var(--color-border),
+    0 5px 14px rgba(18, 37, 43, 0.04);
+
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.keypad-key {
+  font-size: 1.6rem;
+}
+
+.keypad-action {
+  color: var(--color-primary-strong);
+
+  font-size: 0.95rem;
+}
+
+.keypad-key:hover,
+.keypad-action:hover {
+  background: var(--color-primary-soft);
+
+  box-shadow:
+    inset 0 0 0 1px rgba(21, 94, 117, 0.28),
+    0 8px 18px rgba(18, 37, 43, 0.08);
+}
+
+.keypad-key:active,
+.keypad-action:active,
+.primary-button:active,
+.secondary-button:active {
+  transform: translateY(1px);
+}
+
+/* ==========================================================================
+   BOTÕES
+   ========================================================================== */
+
+.primary-button,
+.secondary-button,
+.link-button {
+  width: 100%;
+
+  border-radius: var(--radius-md);
+
+  font-weight: 850;
+}
+
+.primary-button {
+  margin-top: var(--space-4);
+
+  padding-right: var(--space-4);
+  padding-left: var(--space-4);
+
+  background:
+    linear-gradient(
+      135deg,
+      var(--color-primary),
+      var(--color-primary-strong)
+    );
+
+  color: #ffffff;
+
+  box-shadow:
+    0 10px 22px rgba(21, 94, 117, 0.24);
+
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    filter 120ms ease;
+}
+
+.primary-button:hover {
+  filter: brightness(1.05);
+
+  box-shadow:
+    0 13px 28px rgba(21, 94, 117, 0.30);
+}
+
+.primary-button.compact {
+  width: auto;
+  min-width: 170px;
+
+  margin-top: 0;
+  padding: 0 var(--space-4);
+}
+
+.secondary-button {
+  background: var(--color-surface-strong);
+  color: var(--color-text);
+
+  box-shadow:
+    inset 0 0 0 1px var(--color-border);
+}
+
+.link-button {
+  margin-top: var(--space-3);
+
+  background: transparent;
+  color: var(--color-primary);
+
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ==========================================================================
+   CARREGAMENTO
+   ========================================================================== */
+
+.loading-screen {
+  min-height: 360px;
+
+  place-items: center;
+
+  text-align: center;
+}
+
+.loading-screen.screen-active {
+  display: grid;
+}
+
+.spinner {
+  width: 62px;
+  height: 62px;
+
+  border: 6px solid var(--color-primary-soft);
+  border-top-color: var(--color-brand-orange);
+  border-radius: 50%;
+
+  animation: spin 0.75s linear infinite;
+}
+
+.loading-screen h2 {
+  margin: var(--space-4) 0 0;
+
+  font-size: 1.25rem;
+}
+
+/* ==========================================================================
+   PARTICIPANTE
+   ========================================================================== */
+
+.participant-card {
+  position: relative;
+
+  padding: var(--space-5);
+  margin-bottom: var(--space-5);
+
+  overflow: hidden;
+}
+
+.participant-card::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+
+  width: 92px;
+  height: 5px;
+
+  border-radius: 0 0 0 999px;
+
+  background:
+    linear-gradient(
+      90deg,
+      var(--color-brand-red),
+      var(--color-brand-orange),
+      var(--color-brand-yellow)
+    );
+
+  content: "";
+}
+
+.participant-card h2 {
+  margin: var(--space-1) 0 0;
+
+  font-size: clamp(1.55rem, 6vw, 2.4rem);
+  letter-spacing: -0.025em;
+}
+
+.participant-card p {
+  margin: var(--space-2) 0 0;
+
+  color: var(--color-primary);
+
+  font-size: 1rem;
+  font-weight: 850;
+}
+
+/* ==========================================================================
+   SEÇÕES E CARTÕES DE ALIMENTOS
+   ========================================================================== */
+
+.items-container {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.items-section h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+
+  margin: 0 0 var(--space-3);
+
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.items-section h3::before {
+  width: 8px;
+  height: 8px;
+
+  flex: 0 0 auto;
+
+  border-radius: 999px;
+
+  background: var(--color-brand-orange);
+
+  content: "";
+}
+
+.items-grid {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.item-card {
+  position: relative;
+
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+
+  width: 100%;
+  min-height: 78px;
+
+  padding: var(--space-4);
+
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+
+  background: var(--color-surface);
+  color: var(--color-text);
+
+  text-align: left;
+
+  box-shadow: var(--shadow-sm);
+
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.item-card[data-status="DISPONIVEL"] {
+  cursor: pointer;
+}
+
+.item-card[data-status="DISPONIVEL"]:hover {
+  transform: translateY(-1px);
+
+  border-color: rgba(21, 94, 117, 0.30);
+
+  box-shadow:
+    0 12px 26px rgba(18, 37, 43, 0.11);
+}
+
+.item-card[data-selected="true"] {
+  border-color: var(--color-primary);
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(216, 237, 242, 0.96),
+      rgba(255, 240, 229, 0.80)
+    );
+
+  box-shadow:
+    0 14px 30px rgba(21, 94, 117, 0.18);
+}
+
+.item-card[data-status="RETIRADO"] {
+  background: var(--color-success-soft);
+}
+
+.item-card[data-status="NAO_AUTORIZADO"] {
+  background: #f7fafb;
+  color: var(--color-muted);
+}
+
+/* ==========================================================================
+   ÍCONES DOS ALIMENTOS
+   ========================================================================== */
+
+.item-icon,
+.status-indicator,
+.result-icon {
+  display: grid;
+  place-items: center;
+
+  border-radius: 999px;
+}
+
+.item-icon {
+  width: 48px;
+  height: 48px;
+
+  background: var(--color-surface-strong);
+  color: var(--color-primary);
+}
+
+.item-icon svg,
+.status-indicator svg,
+.result-icon svg {
+  width: 25px;
+  height: 25px;
+
+  stroke: currentColor;
+  stroke-width: 2.15;
+  fill: none;
+
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Cachorro-quente */
+.item-card[data-item-id="cachorro_quente_01"] .item-icon,
+.item-card[data-item-id="cachorro_quente_02"] .item-icon {
+  background: #fff0e5;
+  color: #d96500;
+}
+
+/* Caldo */
+.item-card[data-item-id="caldo_mandioca"] .item-icon {
+  background: #fff4d6;
+  color: #9a6400;
+}
+
+/* Pipoca */
+.item-card[data-item-id="pipoca"] .item-icon {
+  background: #fff7cc;
+  color: #9c7000;
+}
+
+/* Canjica */
+.item-card[data-item-id="canjica"] .item-icon {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+
+/* Bolo */
+.item-card[data-item-id="bolo"] .item-icon {
+  background: #ffe4ec;
+  color: #be185d;
+}
+
+/* Refrigerantes */
+.item-card[data-item-id="refrigerante_01"] .item-icon,
+.item-card[data-item-id="refrigerante_02"] .item-icon {
+  background: #dff6ff;
+  color: #0369a1;
+}
+
+/* Doces típicos */
+.item-card[data-item-id="doces_tipicos"] .item-icon {
+  background: #ffe8d6;
+  color: #c2410c;
+}
+
+/* ==========================================================================
+   TEXTO E INDICADORES DOS ITENS
+   ========================================================================== */
+
+.item-name {
+  display: block;
+
+  overflow-wrap: anywhere;
+
+  font-weight: 850;
+}
+
+.item-status {
+  display: block;
+
+  margin-top: var(--space-1);
+
+  color: var(--color-muted);
+
+  font-size: 0.9rem;
+}
+
+.status-indicator {
+  width: 36px;
+  height: 36px;
+
+  background: var(--color-surface-strong);
+  color: var(--color-muted);
+}
+
+.item-card[data-selected="true"] .status-indicator {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.item-card[data-status="RETIRADO"] .status-indicator {
+  background: var(--color-success);
+  color: #ffffff;
+}
+
+.item-card[data-status="NAO_AUTORIZADO"] .status-indicator {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.empty-section {
+  margin: 0;
+
+  padding: var(--space-4);
+
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+
+  background: rgba(255, 255, 255, 0.45);
+
+  color: var(--color-muted);
+
+  text-align: center;
+}
+
+/* ==========================================================================
+   BARRA DE SELEÇÃO
+   ========================================================================== */
+
+.selection-bar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+
+  z-index: 20;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+
+  padding:
+    var(--space-3)
+    var(--space-4)
+    calc(var(--space-3) + env(safe-area-inset-bottom));
+
+  border-top: 1px solid var(--color-border);
+
+  background: rgba(255, 255, 255, 0.96);
+
+  box-shadow:
+    0 -14px 32px rgba(18, 37, 43, 0.14);
+
+  backdrop-filter: blur(14px);
+}
+
+.selection-bar span {
+  font-weight: 850;
+}
+
+/* ==========================================================================
+   MODAIS E BOTTOM SHEETS
+   ========================================================================== */
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+
+  z-index: 30;
+
+  display: grid;
+  align-items: end;
+
+  padding: var(--space-4);
+
+  background: rgba(15, 36, 43, 0.48);
+
+  backdrop-filter: blur(3px);
+}
+
+.bottom-sheet {
+  width: min(100%, 720px);
+
+  margin: 0 auto;
+  padding: var(--space-5);
+
+  border-radius:
+    var(--radius-lg)
+    var(--radius-lg)
+    var(--radius-sm)
+    var(--radius-sm);
+
+  background: var(--color-surface);
+
+  box-shadow: var(--shadow-md);
+}
+
+.bottom-sheet h2 {
+  margin: 0;
+
+  font-size: 1.35rem;
+}
+
+.bottom-sheet p {
+  margin: var(--space-2) 0 0;
+
+  color: var(--color-muted);
+}
+
+.bottom-sheet ul {
+  margin: var(--space-4) 0 0;
+  padding-left: var(--space-5);
+}
+
+.bottom-sheet li + li {
+  margin-top: var(--space-2);
+}
+
+.sheet-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+
+  margin-top: var(--space-5);
+}
+
+.sheet-actions .primary-button,
+.sheet-actions .secondary-button {
+  margin-top: 0;
+}
+
+/* ==========================================================================
+   QR CODE
+   ========================================================================== */
+
+.qr-reader {
+  min-height: 240px;
+
+  margin-top: var(--space-4);
+
+  overflow: hidden;
+
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+
+  background: var(--color-surface-strong);
+}
+
+/* ==========================================================================
+   RESULTADO
+   ========================================================================== */
+
+.result-card {
+  padding: var(--space-6);
+
+  text-align: center;
+}
+
+.result-icon {
+  width: 72px;
+  height: 72px;
+
+  margin: 0 auto var(--space-4);
+
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.result-card.success .result-icon {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.result-card.error .result-icon {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.result-card h2 {
+  margin: 0;
+
+  font-size: 1.5rem;
+}
+
+.result-card p {
+  margin: var(--space-2) 0 0;
+
+  color: var(--color-muted);
+}
+
+.result-details {
+  display: grid;
+  gap: var(--space-3);
+
+  margin-top: var(--space-5);
+
+  text-align: left;
+}
+
+.detail-group {
+  padding: var(--space-4);
+
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+
+  background: var(--color-surface-strong);
+}
+
+.detail-group strong {
+  display: block;
+
+  margin-bottom: var(--space-2);
+}
+
+.detail-group ul {
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+/* ==========================================================================
+   NOTIFICAÇÕES
+   ========================================================================== */
+
+.toast-region {
+  position: fixed;
+  right: var(--space-4);
+  bottom: calc(86px + env(safe-area-inset-bottom));
+  left: var(--space-4);
+
+  z-index: 40;
+
+  display: grid;
+  gap: var(--space-2);
+
+  pointer-events: none;
+}
+
+.toast {
+  padding: var(--space-3) var(--space-4);
+
+  border-radius: var(--radius-md);
+
+  background: var(--color-text);
+  color: #ffffff;
+
+  box-shadow: var(--shadow-md);
+}
+
+.toast.error {
+  background: var(--color-danger);
+}
+
+.toast.success {
+  background: var(--color-success);
+}
+
+/* ==========================================================================
+   UTILITÁRIOS
+   ========================================================================== */
+
+[hidden] {
+  display: none !important;
+}
+
+/* ==========================================================================
+   ANIMAÇÕES
+   ========================================================================== */
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ==========================================================================
+   TABLETS E DESKTOPS
+   ========================================================================== */
+
+@media (min-width: 640px) {
+  .app-shell {
+    padding-right: var(--space-6);
+    padding-left: var(--space-6);
+  }
+
+  .institutional-banner {
+    padding: var(--space-4) var(--space-5);
+  }
+
+  .entry-panel {
+    padding: var(--space-7);
+  }
+
+  .items-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sheet-actions {
+    grid-template-columns: 1fr 1.2fr;
+  }
+}
+
+/* ==========================================================================
+   CELULARES ESTREITOS
+   ========================================================================== */
+
+@media (max-width: 420px) {
+  .app-shell {
+    padding-right: var(--space-3);
+    padding-left: var(--space-3);
+  }
+
+  .institutional-banner {
+    padding: var(--space-2);
+  }
+
+  .app-identification {
+    padding-right: var(--space-3);
+    padding-left: var(--space-4);
+  }
+
+  .entry-panel,
+  .participant-card,
+  .result-card {
+    border-radius: var(--radius-md);
+  }
+
+  .entry-panel {
+    padding: var(--space-4);
+  }
+
+  .matricula-display {
+    min-height: 82px;
+
+    margin: var(--space-4) 0;
+  }
+
+  .keypad {
+    gap: var(--space-2);
+  }
+
+  .keypad-key,
+  .keypad-action {
+    min-height: 62px;
+  }
+
+  .item-card {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+
+    padding: var(--space-3);
+  }
+
+  .item-icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .selection-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .primary-button.compact {
+    width: 100%;
+  }
+}
+
+/* ==========================================================================
+   ORIENTAÇÃO HORIZONTAL
+   ========================================================================== */
+
+@media (orientation: landscape) and (max-height: 540px) {
+  .app-shell {
+    padding-top: var(--space-3);
+  }
+
+  .app-header {
+    margin-bottom: var(--space-3);
+  }
+
+  .institutional-banner {
+    max-height: 88px;
+  }
+
+  .institutional-banner-image {
+    max-height: 62px;
+  }
+
+  .entry-panel {
+    display: grid;
+    grid-template-columns: 1fr 1.1fr;
+    gap: var(--space-4);
+    align-items: start;
+  }
+
+  .entry-copy,
+  .matricula-display,
+  .primary-button,
+  .link-button {
+    grid-column: 1;
+  }
+
+  .keypad {
+    grid-row: 1 / span 5;
+    grid-column: 2;
+  }
+}
+
+/* ==========================================================================
+   REDUÇÃO DE MOVIMENTO
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

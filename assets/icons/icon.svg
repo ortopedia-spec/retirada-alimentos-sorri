@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Controle de retirada de alimentos</title>
+  <desc id="desc">Ícone com prato e marca de confirmação</desc>
+  <rect width="512" height="512" rx="96" fill="#155e75"/>
+  <circle cx="256" cy="250" r="142" fill="#ffffff" opacity="0.94"/>
+  <circle cx="256" cy="250" r="86" fill="#d8edf2"/>
+  <path d="M142 164v184" stroke="#155e75" stroke-width="28" stroke-linecap="round"/>
+  <path d="M370 154v206" stroke="#155e75" stroke-width="28" stroke-linecap="round"/>
+  <path d="M370 154c46 16 70 52 70 98v18c0 38-28 66-66 66h-4" fill="none" stroke="#155e75" stroke-width="28" stroke-linecap="round"/>
+  <path d="m205 270 38 38 78-92" fill="none" stroke="#166534" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
