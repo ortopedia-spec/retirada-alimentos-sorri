@@ -1,208 +1,170 @@
 /**
  * ============================================================================
- * APLICAÇÃO FRONT-END
+ * INTERFACE — CONTROLE DE RETIRADA DE ALIMENTOS
  * ============================================================================
  *
  * Projeto:
  * Controle de retirada de alimentos — Almoço Junino 2026
  *
- * Responsabilidades:
- * - controlar os estados da interface;
- * - receber e normalizar a matrícula;
- * - consultar participantes;
- * - apresentar os alimentos disponíveis e já retirados;
- * - selecionar e confirmar retiradas;
- * - apresentar resultados e erros;
- * - controlar o leitor opcional de QR Code;
- * - apresentar ícones específicos para cada alimento.
+ * Objetivo:
+ * Controlar a interface de consulta e retirada para funcionários e pacientes.
  *
- * Versão: 2.0
- * Data: 27/06/2026
+ * Regras:
+ * - Matrícula: de 1 a 4 dígitos.
+ * - CPF: 11 dígitos.
+ * - Funcionários não possuem acompanhantes.
+ * - Pacientes podem possuir acompanhantes.
+ * - Cada alimento permite selecionar uma quantidade.
+ * - A quantidade máxima é limitada ao saldo devolvido pelo servidor.
+ * - O Apps Script realiza novamente todas as validações antes da gravação.
+ *
+ * Versão: 2.1
+ * Data: 29/06/2026
  * ============================================================================
  */
 
 (function () {
   'use strict';
 
-  const APP_STATES = {
+  const APP_STATES = Object.freeze({
     IDLE: 'IDLE',
     LOADING: 'LOADING',
     PARTICIPANT_FOUND: 'PARTICIPANT_FOUND',
-    NOT_FOUND: 'NOT_FOUND',
     CONFIRMING: 'CONFIRMING',
     SAVING: 'SAVING',
     SUCCESS: 'SUCCESS',
+    NOT_FOUND: 'NOT_FOUND',
     ERROR: 'ERROR'
-  };
+  });
 
-  const STATUS_LABELS = {
-    DISPONIVEL: 'Disponível',
-    RETIRADO: 'Já retirado',
-    NAO_AUTORIZADO: 'Não disponível para este participante'
-  };
+  const ITEM_STATUS = Object.freeze({
+    AVAILABLE: 'DISPONIVEL',
+    REDEEMED: 'RETIRADO',
+    BLOCKED: 'SEM_DIREITO',
+    INACTIVE: 'INATIVO'
+  });
 
-  /**
-   * Apenas estas duas seções serão apresentadas.
-   *
-   * Itens com status NAO_AUTORIZADO continuam podendo existir na API,
-   * porém não serão exibidos na interface atual.
-   */
-  const STATUS_SECTIONS = [
-    {
-      status: 'DISPONIVEL',
-      title: 'Disponíveis para retirada',
-      empty: 'Nenhum alimento disponível para retirada.'
-    },
-    {
-      status: 'RETIRADO',
-      title: 'Já retirados',
-      empty: 'Nenhum alimento foi retirado ainda.'
-    }
-  ];
+  const ICONS = Object.freeze({
+    check: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m5 12 4 4L19 6"/>
+      </svg>
+    `,
 
-  const ICONS = {
-    /**
-     * Cachorro-quente.
-     */
-    hotDog:
-      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-        '<path d="M5 15.5c-1.8 0-3-1.3-3-3s1.2-3 3-3h14c1.8 0 3 1.3 3 3s-1.2 3-3 3Z"/>' +
-        '<path d="M5 9.5c1.1-2.6 3.4-4 7-4s5.9 1.4 7 4"/>' +
-        '<path d="M5 15.5c1.1 2.2 3.4 3.5 7 3.5s5.9-1.3 7-3.5"/>' +
-        '<path d="m7.5 12.5 2-1.5 2 1.5 2-1.5 2 1.5 2-1.5"/>' +
-      '</svg>',
+    plus: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 5v14"/>
+        <path d="M5 12h14"/>
+      </svg>
+    `,
 
-    /**
-     * Tigela de caldo ou sopa.
-     */
-    soup:
-      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-        '<path d="M4 11h16c0 5-3.3 8-8 8s-8-3-8-8Z"/>' +
-        '<path d="M7 19h10"/>' +
-        '<path d="M8 8c-1-1-.6-2 .2-3"/>' +
-        '<path d="M12 8c-1-1-.6-2 .2-3"/>' +
-        '<path d="M16 8c-1-1-.6-2 .2-3"/>' +
-      '</svg>',
+    minus: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5 12h14"/>
+      </svg>
+    `,
 
-    /**
-     * Pipoca.
-     */
-    popcorn:
-      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-        '<path d="M6 10h12l-1.2 10H7.2Z"/>' +
-        '<path d="M8 10 9 20"/>' +
-        '<path d="M12 10v10"/>' +
-        '<path d="m16 10-1 10"/>' +
-        '<path d="M7 10a3 3 0 1 1 3-3"/>' +
-        '<path d="M10 7a3 3 0 1 1 4.8 2.4"/>' +
-        '<path d="M14 7a3 3 0 1 1 3 3"/>' +
-      '</svg>',
+    lock: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="5" y="11" width="14" height="10" rx="2"/>
+        <path d="M8 11V8a4 4 0 0 1 8 0v3"/>
+      </svg>
+    `,
 
-    /**
-     * Tigela para canjica.
-     */
-    canjica:
-      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-        '<path d="M4 11h16c0 5-3.2 8-8 8s-8-3-8-8Z"/>' +
-        '<path d="M7 19h10"/>' +
-        '<circle cx="8" cy="8" r="1"/>' +
-        '<circle cx="12" cy="7" r="1"/>' +
-        '<circle cx="16" cy="8" r="1"/>' +
-        '<circle cx="10" cy="10" r="1"/>' +
-        '<circle cx="14" cy="10" r="1"/>' +
-      '</svg>',
+    alert: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 9v4"/>
+        <path d="M12 17h.01"/>
+        <path
+          d="M10.3 4.4 2.8 17.5A2 2 0 0 0 4.5 20h15a2 2 0 0 0 1.7-2.5L13.7 4.4a2 2 0 0 0-3.4 0Z"
+        />
+      </svg>
+    `,
 
-    /**
-     * Fatia de bolo.
-     */
-    cake:
-      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-        '<path d="M5 10 19 6v13H5Z"/>' +
-        '<path d="M5 14h14"/>' +
-        '<path d="M8 12h.01"/>' +
-        '<path d="M12 11h.01"/>' +
-        '<path d="M16 10h.01"/>' +
-        '<path d="M5 10c2 1 3-1 5 0s3-1 5 0 2-1 4-1"/>' +
-      '</svg>',
+    food: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 3v18"/>
+        <path d="M8 3v8a4 4 0 0 1-4 4"/>
+        <path d="M14 3v18"/>
+        <path d="M14 3c3 0 6 3 6 7v2c0 2-1.5 3.5-3.5 3.5H14"/>
+      </svg>
+    `,
 
-    /**
-     * Copo de refrigerante.
-     */
-    drink:
-      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-        '<path d="M7 8h10l-1 12H8Z"/>' +
-        '<path d="M6 8h12"/>' +
-        '<path d="m13 8 2-5h3"/>' +
-        '<path d="M9 12h6"/>' +
-      '</svg>',
+    cachorro_quente: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M5.2 8.2c-2.2 1.3-3.1 4.1-1.8 6.3 1.3 2.2 4.1 3 6.3 1.8l9.1-5.3c2.2-1.3 3-4.1 1.8-6.3-1.3-2.2-4.1-3-6.3-1.8Z"
+        />
+        <path d="m7.2 13.3 9.6-5.6"/>
+        <path d="M8.5 9.2c.8.2 1.3.8 1.8 1.4.6.7 1.1 1.2 2 1.4"/>
+      </svg>
+    `,
 
-    /**
-     * Doces.
-     */
-    candy:
-      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-        '<path d="m8 8 8 8"/>' +
-        '<path d="M9.5 6.5a4 4 0 0 1 5.7 0l2.3 2.3a4 4 0 0 1 0 5.7l-3 3a4 4 0 0 1-5.7 0l-2.3-2.3a4 4 0 0 1 0-5.7Z"/>' +
-        '<path d="m6.5 9.5-3-1 1 3-2 2 3 1"/>' +
-        '<path d="m17.5 14.5 3 1-1-3 2-2-3-1"/>' +
-      '</svg>',
+    caldo_mandioca: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 9h16l-1.1 7.1A4 4 0 0 1 15 19H9a4 4 0 0 1-3.9-2.9Z"/>
+        <path d="M8 5c0 1 1 1.5 1 2.5"/>
+        <path d="M12 4c0 1 1 1.5 1 2.5"/>
+        <path d="M16 5c0 1 1 1.5 1 2.5"/>
+      </svg>
+    `,
 
-    /**
-     * Ícone genérico utilizado como alternativa.
-     */
-    food:
-      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-        '<path d="M4 3v18"/>' +
-        '<path d="M8 3v8a4 4 0 0 1-4 4"/>' +
-        '<path d="M14 3v18"/>' +
-        '<path d="M14 3c3 0 6 3 6 7v2c0 2-1.5 3.5-3.5 3.5H14"/>' +
-      '</svg>',
+    pipoca: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m6 9 1.4 11h9.2L18 9"/>
+        <path d="M6 9h12"/>
+        <path d="M8.5 9 10 20"/>
+        <path d="m15.5 9-1.5 11"/>
+        <path d="M7 8a2.5 2.5 0 0 1 3.8-2.1A3 3 0 0 1 16 7.5c0 .2 0 .3-.1.5"/>
+        <path d="M10.8 5.9A2.5 2.5 0 0 1 15 4.5"/>
+      </svg>
+    `,
 
-    check:
-      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-        '<path d="m5 12 4 4L19 6"/>' +
-      '</svg>',
+    canjica: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 10h16l-1 6a4 4 0 0 1-4 3H9a4 4 0 0 1-4-3Z"/>
+        <path d="M7 10c.5-2.8 2.2-4 5-4s4.5 1.2 5 4"/>
+        <circle cx="9" cy="9" r=".7"/>
+        <circle cx="12" cy="8" r=".7"/>
+        <circle cx="15" cy="9" r=".7"/>
+      </svg>
+    `,
 
-    plus:
-      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-        '<path d="M12 5v14"/>' +
-        '<path d="M5 12h14"/>' +
-      '</svg>',
+    bolo: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5 9h14v10H5Z"/>
+        <path d="M5 13h14"/>
+        <path d="M8 6h8l3 3H5Z"/>
+        <path d="M9 16h6"/>
+      </svg>
+    `,
 
-    lock:
-      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-        '<rect x="5" y="11" width="14" height="10" rx="2"/>' +
-        '<path d="M8 11V8a4 4 0 0 1 8 0v3"/>' +
-      '</svg>',
+    refrigerante: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M7 7h10l-1 14H8Z"/>
+        <path d="M6 7h12"/>
+        <path d="m10 3 4 4"/>
+        <path d="M10 12h4"/>
+      </svg>
+    `,
 
-    alert:
-      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-        '<path d="M12 9v4"/>' +
-        '<path d="M12 17h.01"/>' +
-        '<path d="M10.3 4.4 2.8 17.5A2 2 0 0 0 4.5 20h15a2 2 0 0 0 1.7-2.5L13.7 4.4a2 2 0 0 0-3.4 0Z"/>' +
-      '</svg>'
-  };
-
-  /**
-   * Associação entre o ID do alimento e seu ícone.
-   */
-  const ITEM_ICONS = {
-    cachorro_quente_01: ICONS.hotDog,
-    cachorro_quente_02: ICONS.hotDog,
-    caldo_mandioca: ICONS.soup,
-    pipoca: ICONS.popcorn,
-    canjica: ICONS.canjica,
-    bolo: ICONS.cake,
-    refrigerante_01: ICONS.drink,
-    refrigerante_02: ICONS.drink,
-    doces_tipicos: ICONS.candy
-  };
+    doces_tipicos: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m8 7 8 10"/>
+        <path d="m16 7-8 10"/>
+        <path d="M6 5 3 7l2 3"/>
+        <path d="m18 5 3 2-2 3"/>
+        <path d="M8 7c2-2 6-2 8 0l2 3c-2 3-4 5-6 7-2-2-4-4-6-7Z"/>
+      </svg>
+    `
+  });
 
   const state = {
     appState: APP_STATES.IDLE,
-    matriculaDigitada: '',
+    identificadorDigitado: '',
+    identificacaoAtual: null,
     participante: null,
-    selecionados: new Set(),
+    quantidades: new Map(),
     resetTimer: null,
     qrScanner: null,
     qrReading: false,
@@ -211,107 +173,232 @@
 
   const elements = {};
 
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener(
+    'DOMContentLoaded',
+    init
+  );
 
-  /**
-   * Inicializa a aplicação.
-   */
   function init() {
     cacheElements();
+    configurarTextosIniciais();
     bindEvents();
+    atualizarDisplayIdentificador();
     setAppState(APP_STATES.IDLE);
-    atualizarDisplayMatricula();
-    focarEntrada();
     registrarServiceWorker();
   }
 
-  /**
-   * Localiza e armazena os elementos do HTML utilizados pela aplicação.
-   */
   function cacheElements() {
     elements.screens = {
-      idle: document.getElementById('screen-idle'),
-      loading: document.getElementById('screen-loading'),
-      participant: document.getElementById('screen-participant'),
-      result: document.getElementById('screen-result')
+      idle: document.getElementById(
+        'screen-idle'
+      ),
+
+      loading: document.getElementById(
+        'screen-loading'
+      ),
+
+      participant: document.getElementById(
+        'screen-participant'
+      ),
+
+      result: document.getElementById(
+        'screen-result'
+      )
     };
 
-    elements.input = document.getElementById('matricula-input');
-    elements.display = document.getElementById('display-matricula');
-    elements.keypad = document.querySelector('.keypad');
+    elements.entryTitle =
+      document.getElementById(
+        'initial-title'
+      );
 
-    elements.btnClear = document.getElementById('btn-clear');
-    elements.btnBackspace = document.getElementById('btn-backspace');
-    elements.btnSearch = document.getElementById('btn-search');
+    elements.entryDescription =
+      document.querySelector(
+        '#screen-idle .entry-copy p'
+      );
 
-    elements.btnOpenQr = document.getElementById('btn-open-qr');
-    elements.btnCloseQr = document.getElementById('btn-close-qr');
+    elements.input =
+      document.getElementById(
+        'matricula-input'
+      );
 
-    elements.qrSheet = document.getElementById('qr-sheet');
-    elements.qrReader = document.getElementById('qr-reader');
-    elements.qrMessage = document.getElementById('qr-message');
+    elements.display =
+      document.getElementById(
+        'display-matricula'
+      );
+
+    elements.keypad =
+      document.querySelector(
+        '.keypad'
+      );
+
+    elements.btnClear =
+      document.getElementById(
+        'btn-clear'
+      );
+
+    elements.btnBackspace =
+      document.getElementById(
+        'btn-backspace'
+      );
+
+    elements.btnSearch =
+      document.getElementById(
+        'btn-search'
+      );
+
+    elements.btnOpenQr =
+      document.getElementById(
+        'btn-open-qr'
+      );
+
+    elements.loadingTitle =
+      document.querySelector(
+        '#screen-loading h2'
+      );
+
+    elements.cardEyebrow =
+      document.querySelector(
+        '#screen-participant .card-eyebrow'
+      );
 
     elements.participantName =
-      document.getElementById('participant-name');
+      document.getElementById(
+        'participant-name'
+      );
 
     elements.participantMatricula =
-      document.getElementById('participant-matricula');
+      document.getElementById(
+        'participant-matricula'
+      );
 
     elements.itemsContainer =
-      document.getElementById('items-container');
+      document.getElementById(
+        'items-container'
+      );
 
     elements.selectionBar =
-      document.getElementById('selection-bar');
+      document.getElementById(
+        'selection-bar'
+      );
 
     elements.selectionCount =
-      document.getElementById('selection-count');
+      document.getElementById(
+        'selection-count'
+      );
 
     elements.btnConfirmOpen =
-      document.getElementById('btn-confirm-open');
+      document.getElementById(
+        'btn-confirm-open'
+      );
 
     elements.confirmationSheet =
-      document.getElementById('confirmation-sheet');
+      document.getElementById(
+        'confirmation-sheet'
+      );
 
     elements.confirmationTitle =
-      document.getElementById('confirmation-title');
+      document.getElementById(
+        'confirmation-title'
+      );
 
     elements.confirmationParticipant =
-      document.getElementById('confirmation-participant');
+      document.getElementById(
+        'confirmation-participant'
+      );
 
     elements.confirmationList =
-      document.getElementById('confirmation-list');
+      document.getElementById(
+        'confirmation-list'
+      );
 
     elements.btnCancelConfirmation =
-      document.getElementById('btn-cancel-confirmation');
+      document.getElementById(
+        'btn-cancel-confirmation'
+      );
 
     elements.btnConfirmSave =
-      document.getElementById('btn-confirm-save');
+      document.getElementById(
+        'btn-confirm-save'
+      );
 
     elements.resultCard =
-      document.getElementById('result-card');
+      document.getElementById(
+        'result-card'
+      );
 
     elements.resultIcon =
-      document.getElementById('result-icon');
+      document.getElementById(
+        'result-icon'
+      );
 
     elements.resultTitle =
-      document.getElementById('result-title');
+      document.getElementById(
+        'result-title'
+      );
 
     elements.resultMessage =
-      document.getElementById('result-message');
+      document.getElementById(
+        'result-message'
+      );
 
     elements.resultDetails =
-      document.getElementById('result-details');
+      document.getElementById(
+        'result-details'
+      );
 
     elements.btnNewSearch =
-      document.getElementById('btn-new-search');
+      document.getElementById(
+        'btn-new-search'
+      );
+
+    elements.btnCloseQr =
+      document.getElementById(
+        'btn-close-qr'
+      );
+
+    elements.qrSheet =
+      document.getElementById(
+        'qr-sheet'
+      );
+
+    elements.qrReader =
+      document.getElementById(
+        'qr-reader'
+      );
+
+    elements.qrMessage =
+      document.getElementById(
+        'qr-message'
+      );
 
     elements.toastRegion =
-      document.getElementById('toast-region');
+      document.getElementById(
+        'toast-region'
+      );
   }
 
-  /**
-   * Configura os eventos da interface.
-   */
+  function configurarTextosIniciais() {
+    if (elements.entryTitle) {
+      elements.entryTitle.textContent =
+        'Digite a matrícula ou CPF';
+    }
+
+    if (elements.entryDescription) {
+      elements.entryDescription.textContent =
+        'Funcionários usam a matrícula. Pacientes usam o CPF.';
+    }
+
+    elements.btnSearch.textContent =
+      'Consultar participante';
+
+    elements.input.maxLength = 11;
+
+    elements.input.setAttribute(
+      'aria-label',
+      'Matrícula ou CPF'
+    );
+  }
+
   function bindEvents() {
     elements.keypad.addEventListener(
       'click',
@@ -320,7 +407,7 @@
 
     elements.btnClear.addEventListener(
       'click',
-      limparMatricula
+      limparIdentificador
     );
 
     elements.btnBackspace.addEventListener(
@@ -346,6 +433,11 @@
     document.addEventListener(
       'keydown',
       handleGlobalKeydown
+    );
+
+    elements.itemsContainer.addEventListener(
+      'click',
+      handleItemsClick
     );
 
     elements.btnConfirmOpen.addEventListener(
@@ -389,19 +481,21 @@
     );
   }
 
-  /**
-   * Altera o estado atual da aplicação.
-   */
-  function setAppState(nextState, details) {
+  function setAppState(
+    nextState,
+    details
+  ) {
     state.appState = nextState;
 
     clearResetTimer();
 
-    Object.values(elements.screens).forEach(
-      function (screen) {
-        screen.classList.remove('screen-active');
-      }
-    );
+    Object.values(
+      elements.screens
+    ).forEach(function (screen) {
+      screen.classList.remove(
+        'screen-active'
+      );
+    });
 
     elements.selectionBar.hidden = true;
 
@@ -418,50 +512,51 @@
 
       limparDadosParticipante();
       focarEntrada();
+
+      return;
     }
 
     if (nextState === APP_STATES.LOADING) {
+      elements.loadingTitle.textContent =
+        'Consultando participante...';
+
       elements.screens.loading.classList.add(
         'screen-active'
       );
+
+      return;
     }
 
     if (
-      nextState === APP_STATES.PARTICIPANT_FOUND
+      nextState ===
+        APP_STATES.PARTICIPANT_FOUND ||
+      nextState ===
+        APP_STATES.CONFIRMING
     ) {
       elements.screens.participant.classList.add(
         'screen-active'
       );
 
       atualizarBarraSelecao();
-    }
 
-    if (nextState === APP_STATES.CONFIRMING) {
-      elements.screens.participant.classList.add(
-        'screen-active'
-      );
-
-      atualizarBarraSelecao();
+      return;
     }
 
     if (nextState === APP_STATES.SAVING) {
+      elements.loadingTitle.textContent =
+        'Registrando retirada...';
+
       elements.screens.loading.classList.add(
         'screen-active'
       );
 
-      document.querySelector(
-        '#screen-loading h2'
-      ).textContent = 'Registrando retirada...';
-    } else {
-      document.querySelector(
-        '#screen-loading h2'
-      ).textContent = 'Consultando participante...';
+      return;
     }
 
     if (
       nextState === APP_STATES.SUCCESS ||
-      nextState === APP_STATES.ERROR ||
-      nextState === APP_STATES.NOT_FOUND
+      nextState === APP_STATES.NOT_FOUND ||
+      nextState === APP_STATES.ERROR
     ) {
       elements.screens.result.classList.add(
         'screen-active'
@@ -474,12 +569,10 @@
     }
   }
 
-  /**
-   * Trata o clique no teclado numérico virtual.
-   */
   function handleKeypadClick(event) {
-    const button =
-      event.target.closest('[data-digit]');
+    const button = event.target.closest(
+      '[data-digit]'
+    );
 
     if (
       !button ||
@@ -488,48 +581,50 @@
       return;
     }
 
-    adicionarDigito(button.dataset.digit);
+    adicionarDigito(
+      button.dataset.digit
+    );
   }
 
-  /**
-   * Trata alterações realizadas pelo teclado físico.
-   */
   function handleInputChange(event) {
-    state.matriculaDigitada =
+    state.identificadorDigitado =
       sanitizarEntradaNumerica(
         event.target.value
-      );
+      ).slice(0, 11);
 
     event.target.value =
-      state.matriculaDigitada;
+      state.identificadorDigitado;
 
-    atualizarDisplayMatricula();
+    atualizarDisplayIdentificador();
   }
 
-  /**
-   * Consulta ao pressionar Enter.
-   */
   function handleInputKeydown(event) {
     if (event.key === 'Enter') {
       event.preventDefault();
+
       consultarParticipante();
     }
   }
 
-  /**
-   * Controla os atalhos do teclado físico.
-   */
   function handleGlobalKeydown(event) {
-    if (
+    const tagName =
       document.activeElement &&
-      ['BUTTON', 'TEXTAREA', 'SELECT'].includes(
-        document.activeElement.tagName
-      )
+      document.activeElement.tagName;
+
+    if (
+      [
+        'BUTTON',
+        'TEXTAREA',
+        'SELECT'
+      ].includes(tagName)
     ) {
       return;
     }
 
-    if (state.appState !== APP_STATES.IDLE) {
+    if (
+      state.appState !==
+      APP_STATES.IDLE
+    ) {
       if (event.key === 'Escape') {
         closeConfirmation();
         closeQrReader();
@@ -540,113 +635,158 @@
 
     if (/^\d$/.test(event.key)) {
       event.preventDefault();
+
       adicionarDigito(event.key);
+
+      return;
     }
 
     if (event.key === 'Backspace') {
       event.preventDefault();
+
       apagarUltimoDigito();
+
+      return;
     }
 
     if (event.key === 'Enter') {
       event.preventDefault();
+
       consultarParticipante();
     }
   }
 
-  /**
-   * Adiciona um dígito à matrícula.
-   */
   function adicionarDigito(digito) {
-    state.matriculaDigitada =
-      sanitizarEntradaNumerica(
-        state.matriculaDigitada + digito
-      ).slice(0, 12);
-
-    elements.input.value =
-      state.matriculaDigitada;
-
-    atualizarDisplayMatricula();
-    focarEntrada();
-  }
-
-  /**
-   * Remove o último dígito.
-   */
-  function apagarUltimoDigito() {
-    state.matriculaDigitada =
-      state.matriculaDigitada.slice(0, -1);
-
-    elements.input.value =
-      state.matriculaDigitada;
-
-    atualizarDisplayMatricula();
-    focarEntrada();
-  }
-
-  /**
-   * Limpa a matrícula.
-   */
-  function limparMatricula() {
-    state.matriculaDigitada = '';
-    elements.input.value = '';
-
-    atualizarDisplayMatricula();
-    focarEntrada();
-  }
-
-  /**
-   * Atualiza o visor da matrícula.
-   */
-  function atualizarDisplayMatricula() {
-    const normalizada =
-      window.RetiradaAPI.normalizarMatricula(
-        state.matriculaDigitada
-      );
-
-    elements.display.textContent =
-      normalizada || '000000';
-  }
-
-  /**
-   * Consulta o participante.
-   */
-  async function consultarParticipante() {
-    if (state.appState === APP_STATES.LOADING) {
+    if (
+      state.identificadorDigitado.length >=
+      11
+    ) {
       return;
     }
 
-    const matricula =
-      window.RetiradaAPI.normalizarMatricula(
-        state.matriculaDigitada
+    state.identificadorDigitado =
+      sanitizarEntradaNumerica(
+        state.identificadorDigitado +
+          digito
+      ).slice(0, 11);
+
+    elements.input.value =
+      state.identificadorDigitado;
+
+    atualizarDisplayIdentificador();
+    focarEntrada();
+  }
+
+  function apagarUltimoDigito() {
+    state.identificadorDigitado =
+      state.identificadorDigitado.slice(
+        0,
+        -1
       );
 
-    if (!matricula) {
+    elements.input.value =
+      state.identificadorDigitado;
+
+    atualizarDisplayIdentificador();
+    focarEntrada();
+  }
+
+  function limparIdentificador() {
+    state.identificadorDigitado = '';
+
+    elements.input.value = '';
+
+    atualizarDisplayIdentificador();
+    focarEntrada();
+  }
+
+  function atualizarDisplayIdentificador() {
+    const digitos =
+      state.identificadorDigitado;
+
+    if (!digitos) {
+      elements.display.textContent =
+        '000000';
+
+      elements.display.dataset.inputType =
+        'VAZIO';
+
+      return;
+    }
+
+    elements.display.textContent =
+      window.RetiradaAPI
+        .formatarIdentificador(
+          digitos
+        );
+
+    elements.display.dataset.inputType =
+      digitos.length <= 4
+        ? 'MATRICULA'
+        : 'CPF';
+  }
+
+  async function consultarParticipante() {
+    if (
+      state.appState ===
+      APP_STATES.LOADING
+    ) {
+      return;
+    }
+
+    let identificacao;
+
+    try {
+      identificacao =
+        window.RetiradaAPI
+          .identificarTipo(
+            state.identificadorDigitado
+          );
+
+    } catch (error) {
       showToast(
-        'Digite uma matrícula para consultar.',
+        mapErrorMessage(error),
         'error'
       );
 
       focarEntrada();
+
       return;
     }
 
-    setAppState(APP_STATES.LOADING);
+    state.identificacaoAtual =
+      identificacao;
+
+    setAppState(
+      APP_STATES.LOADING
+    );
 
     try {
       const response =
-        await window.RetiradaAPI.buscarParticipante(
-          matricula
-        );
+        await window.RetiradaAPI
+          .buscarParticipante({
+            tipoParticipante:
+              identificacao
+                .tipoParticipante,
 
-      state.participante = response.data;
-      state.selecionados.clear();
+            identificador:
+              identificacao
+                .identificador
+          });
 
-      renderParticipant(response.data);
+      state.participante =
+        response.data;
+
+      state.quantidades.clear();
+
+      renderParticipant(
+        state.participante
+      );
 
       setAppState(
         APP_STATES.PARTICIPANT_FOUND
       );
+
     } catch (error) {
       console.error(
         'Erro ao buscar participante:',
@@ -657,272 +797,585 @@
         error.code ===
         'PARTICIPANTE_NAO_ENCONTRADO'
       ) {
+        const tipo =
+          identificacao
+            .tipoParticipante === 'P'
+            ? 'CPF'
+            : 'Matrícula';
+
         setAppState(
           APP_STATES.NOT_FOUND,
           {
-            title: 'Matrícula não encontrada',
+            title:
+              tipo +
+              ' não encontrado',
+
             message:
-              error.message ||
-              'Confira o número e tente novamente.'
+              'Confira o número informado e tente novamente.'
           }
         );
-      } else {
-        setAppState(
-          APP_STATES.ERROR,
-          {
-            title: 'Não foi possível consultar',
-            message: mapErrorMessage(error)
-          }
-        );
+
+        return;
       }
+
+      setAppState(
+        APP_STATES.ERROR,
+        {
+          title:
+            'Não foi possível consultar',
+
+          message:
+            mapErrorMessage(error)
+        }
+      );
     }
   }
 
-  /**
-   * Apresenta os dados do participante.
-   */
-  function renderParticipant(participante) {
+  function renderParticipant(
+    participante
+  ) {
+    const isPatient =
+      participante
+        .tipoParticipante === 'P';
+
+    const lines = [];
+
+    elements.cardEyebrow.textContent =
+      isPatient
+        ? 'Paciente'
+        : 'Funcionário';
+
     elements.participantName.textContent =
       participante.nome ||
       'Participante sem nome';
 
-    elements.participantMatricula.textContent =
-      montarDescricaoParticipante(
-        participante
+    if (isPatient) {
+      lines.push(
+        'CPF ' +
+          (
+            participante
+              .cpfMascarado ||
+            participante
+              .identificadorMascarado ||
+            '***.***.***-**'
+          )
       );
+
+      if (
+        participante
+          .quantidadeAcompanhantes === 1
+      ) {
+        lines.push(
+          '1 acompanhante'
+        );
+
+      } else if (
+        participante
+          .quantidadeAcompanhantes > 1
+      ) {
+        lines.push(
+          participante
+            .quantidadeAcompanhantes +
+            ' acompanhantes'
+        );
+
+      } else {
+        lines.push(
+          'Sem acompanhante'
+        );
+      }
+
+      lines.push(
+        participante.totalPessoas +
+          (
+            participante.totalPessoas === 1
+              ? ' pessoa autorizada'
+              : ' pessoas autorizadas'
+          )
+      );
+
+    } else {
+      lines.push(
+        'Matrícula ' +
+          (
+            participante.matricula ||
+            participante
+              .identificadorMascarado ||
+            ''
+          )
+      );
+    }
+
+    if (participante.setor) {
+      lines.push(
+        'Setor: ' +
+          participante.setor
+      );
+    }
+
+    elements.participantMatricula.textContent =
+      lines.join(' • ');
 
     renderItems(
       participante.itens || []
     );
   }
 
-  /**
-   * Monta a descrição contendo matrícula e setor.
-   */
-  function montarDescricaoParticipante(
-    participante
-  ) {
-    const detalhes = [];
-
-    if (participante.matricula) {
-      detalhes.push(
-        'Matrícula ' +
-        participante.matricula
-      );
-    }
-
-    if (participante.setor) {
-      detalhes.push(
-        'Setor: ' +
-        participante.setor
-      );
-    }
-
-    return detalhes.join(' • ');
-  }
-
-  /**
-   * Renderiza as seções visíveis de alimentos.
-   */
   function renderItems(itens) {
-    elements.itemsContainer.replaceChildren();
+    elements.itemsContainer
+      .replaceChildren();
 
-    STATUS_SECTIONS.forEach(
-      function (section) {
-        const sectionElement =
-          document.createElement('section');
-
-        sectionElement.className =
-          'items-section';
-
-        const title =
-          document.createElement('h3');
-
-        title.textContent =
-          section.title;
-
-        sectionElement.appendChild(title);
-
-        const itemsByStatus =
-          itens.filter(function (item) {
-            return (
-              item.status === section.status
-            );
-          });
-
-        if (!itemsByStatus.length) {
-          const empty =
-            document.createElement('p');
-
-          empty.className =
-            'empty-section';
-
-          empty.textContent =
-            section.empty;
-
-          sectionElement.appendChild(empty);
-        } else {
-          const grid =
-            document.createElement('div');
-
-          grid.className =
-            'items-grid';
-
-          itemsByStatus.forEach(
-            function (item) {
-              grid.appendChild(
-                criarItemCard(item)
-              );
-            }
-          );
-
-          sectionElement.appendChild(grid);
-        }
-
-        elements.itemsContainer.appendChild(
-          sectionElement
+    const visiveis =
+      itens.filter(function (item) {
+        return (
+          item.ativo !== false &&
+          !item.bloqueado &&
+          item.status !==
+            ITEM_STATUS.INACTIVE
         );
-      }
+      });
+
+    const disponiveis =
+      visiveis.filter(function (item) {
+        return (
+          Number(
+            item.saldoDisponivel
+          ) > 0
+        );
+      });
+
+    const retirados =
+      visiveis.filter(function (item) {
+        return (
+          Number(
+            item.saldoDisponivel
+          ) <= 0
+        );
+      });
+
+    elements.itemsContainer.appendChild(
+      criarSecaoItens(
+        'Disponíveis para retirada',
+        disponiveis,
+        'Nenhum alimento disponível para retirada.',
+        true
+      )
+    );
+
+    elements.itemsContainer.appendChild(
+      criarSecaoItens(
+        'Já retirados',
+        retirados,
+        'Nenhum alimento foi retirado completamente ainda.',
+        false
+      )
     );
   }
 
-  /**
-   * Cria um cartão de alimento.
-   */
-  function criarItemCard(item) {
-    const isDisponivel =
-      item.status === 'DISPONIVEL';
+  function criarSecaoItens(
+    titulo,
+    itens,
+    textoVazio,
+    permitirQuantidade
+  ) {
+    const section =
+      document.createElement(
+        'section'
+      );
 
-    const selected =
-      state.selecionados.has(item.id);
+    section.className =
+      'items-section';
+
+    const heading =
+      document.createElement(
+        'h3'
+      );
+
+    heading.textContent =
+      titulo;
+
+    section.appendChild(
+      heading
+    );
+
+    if (!itens.length) {
+      const empty =
+        document.createElement(
+          'p'
+        );
+
+      empty.className =
+        'empty-section';
+
+      empty.textContent =
+        textoVazio;
+
+      section.appendChild(
+        empty
+      );
+
+      return section;
+    }
+
+    const grid =
+      document.createElement(
+        'div'
+      );
+
+    grid.className =
+      'items-grid';
+
+    itens.forEach(function (item) {
+      grid.appendChild(
+        criarItemCard(
+          item,
+          permitirQuantidade
+        )
+      );
+    });
+
+    section.appendChild(
+      grid
+    );
+
+    return section;
+  }
+
+  function criarItemCard(
+    item,
+    permitirQuantidade
+  ) {
+    const quantidadeSelecionada =
+      state.quantidades.get(
+        item.id
+      ) || 0;
 
     const card =
-      document.createElement('button');
+      document.createElement(
+        'article'
+      );
 
-    card.type = 'button';
-    card.className = 'item-card';
+    card.className =
+      'item-card';
 
-    card.dataset.itemId = item.id;
-    card.dataset.status = item.status;
-    card.dataset.selected = String(selected);
+    card.dataset.itemId =
+      item.id;
 
-    card.disabled = !isDisponivel;
+    card.dataset.status =
+      item.status ||
+      ITEM_STATUS.AVAILABLE;
 
-    card.setAttribute(
-      'aria-pressed',
-      isDisponivel
-        ? String(selected)
-        : 'false'
-    );
-
-    card.setAttribute(
-      'aria-label',
-      item.nome +
-        '. ' +
-        (
-          STATUS_LABELS[item.status] ||
-          item.status
-        )
-    );
+    card.dataset.selected =
+      String(
+        quantidadeSelecionada > 0
+      );
 
     const icon =
-      document.createElement('span');
+      document.createElement(
+        'span'
+      );
 
-    icon.className = 'item-icon';
+    icon.className =
+      'item-icon item-icon--' +
+      item.id;
+
     icon.innerHTML =
-      obterIconeItem(item.id);
+      ICONS[item.id] ||
+      ICONS.food;
 
     const text =
-      document.createElement('span');
+      document.createElement(
+        'span'
+      );
+
+    text.className =
+      'item-copy';
 
     const name =
-      document.createElement('span');
+      document.createElement(
+        'span'
+      );
 
-    name.className = 'item-name';
-    name.textContent = item.nome;
+    name.className =
+      'item-name';
+
+    name.textContent =
+      item.nome;
 
     const status =
-      document.createElement('span');
+      document.createElement(
+        'span'
+      );
 
-    status.className = 'item-status';
+    status.className =
+      'item-status';
 
     status.textContent =
-      STATUS_LABELS[item.status] ||
-      item.status;
+      criarTextoStatusItem(
+        item
+      );
 
     text.append(
       name,
       status
     );
 
-    const indicator =
-      document.createElement('span');
-
-    indicator.className =
-      'status-indicator';
-
-    indicator.innerHTML =
-      getIndicatorIcon(
-        item.status,
-        selected
+    if (permitirQuantidade) {
+      card.append(
+        icon,
+        text,
+        criarControleQuantidade(
+          item,
+          quantidadeSelecionada
+        )
       );
 
-    card.append(
-      icon,
-      text,
-      indicator
-    );
+    } else {
+      const indicator =
+        document.createElement(
+          'span'
+        );
 
-    if (isDisponivel) {
-      card.addEventListener(
-        'click',
-        function () {
-          toggleItemSelection(item.id);
-        }
+      indicator.className =
+        'status-indicator';
+
+      indicator.innerHTML =
+        ICONS.check;
+
+      card.append(
+        icon,
+        text,
+        indicator
       );
     }
 
     return card;
   }
 
-  /**
-   * Retorna o ícone específico do alimento.
-   */
-  function obterIconeItem(itemId) {
+  function criarTextoStatusItem(item) {
+    const direito =
+      Number(
+        item.direitoTotal
+      ) || 0;
+
+    const retirado =
+      Number(
+        item.quantidadeRetirada
+      ) || 0;
+
+    const saldo =
+      Number(
+        item.saldoDisponivel
+      ) || 0;
+
+    if (saldo <= 0) {
+      return (
+        'Retirado: ' +
+        retirado +
+        ' de ' +
+        direito
+      );
+    }
+
+    if (retirado > 0) {
+      return (
+        'Disponíveis: ' +
+        saldo +
+        ' de ' +
+        direito +
+        ' • Já retirados: ' +
+        retirado
+      );
+    }
+
     return (
-      ITEM_ICONS[itemId] ||
-      ICONS.food
+      'Disponíveis: ' +
+      saldo +
+      ' de ' +
+      direito
     );
   }
 
-  /**
-   * Retorna o ícone do indicador de status.
-   */
-  function getIndicatorIcon(
-    status,
-    selected
+  function criarControleQuantidade(
+    item,
+    quantidadeSelecionada
   ) {
-    if (status === 'RETIRADO') {
-      return ICONS.check;
-    }
+    const control =
+      document.createElement(
+        'span'
+      );
 
-    if (status === 'NAO_AUTORIZADO') {
-      return ICONS.lock;
-    }
+    control.className =
+      'quantity-control';
 
-    return selected
-      ? ICONS.check
-      : ICONS.plus;
+    control.setAttribute(
+      'role',
+      'group'
+    );
+
+    control.setAttribute(
+      'aria-label',
+      'Quantidade de ' +
+        item.nome
+    );
+
+    const minusButton =
+      document.createElement(
+        'button'
+      );
+
+    minusButton.type =
+      'button';
+
+    minusButton.className =
+      'quantity-button quantity-button-minus';
+
+    minusButton.dataset.quantityAction =
+      'decrement';
+
+    minusButton.dataset.itemId =
+      item.id;
+
+    minusButton.disabled =
+      quantidadeSelecionada <= 0;
+
+    minusButton.setAttribute(
+      'aria-label',
+      'Diminuir ' +
+        item.nome
+    );
+
+    minusButton.innerHTML =
+      ICONS.minus;
+
+    const value =
+      document.createElement(
+        'span'
+      );
+
+    value.className =
+      'quantity-value';
+
+    value.textContent =
+      String(
+        quantidadeSelecionada
+      );
+
+    value.setAttribute(
+      'aria-live',
+      'polite'
+    );
+
+    const plusButton =
+      document.createElement(
+        'button'
+      );
+
+    plusButton.type =
+      'button';
+
+    plusButton.className =
+      'quantity-button quantity-button-plus';
+
+    plusButton.dataset.quantityAction =
+      'increment';
+
+    plusButton.dataset.itemId =
+      item.id;
+
+    plusButton.disabled =
+      quantidadeSelecionada >=
+      Number(
+        item.saldoDisponivel || 0
+      );
+
+    plusButton.setAttribute(
+      'aria-label',
+      'Adicionar ' +
+        item.nome
+    );
+
+    plusButton.innerHTML =
+      ICONS.plus;
+
+    control.append(
+      minusButton,
+      value,
+      plusButton
+    );
+
+    return control;
   }
 
-  /**
-   * Seleciona ou desmarca um alimento.
-   */
-  function toggleItemSelection(itemId) {
-    if (state.selecionados.has(itemId)) {
-      state.selecionados.delete(itemId);
+  function handleItemsClick(event) {
+    const button =
+      event.target.closest(
+        '[data-quantity-action]'
+      );
+
+    if (
+      !button ||
+      !state.participante
+    ) {
+      return;
+    }
+
+    const itemId =
+      button.dataset.itemId;
+
+    const action =
+      button.dataset
+        .quantityAction;
+
+    const item =
+      encontrarItemPorId(
+        itemId
+      );
+
+    if (!item) {
+      return;
+    }
+
+    const atual =
+      state.quantidades.get(
+        itemId
+      ) || 0;
+
+    const limite =
+      Number(
+        item.saldoDisponivel
+      ) || 0;
+
+    let proxima =
+      atual;
+
+    if (
+      action === 'increment'
+    ) {
+      proxima = Math.min(
+        limite,
+        atual + 1
+      );
+
+    } else if (
+      action === 'decrement'
+    ) {
+      proxima = Math.max(
+        0,
+        atual - 1
+      );
+    }
+
+    if (proxima > 0) {
+      state.quantidades.set(
+        itemId,
+        proxima
+      );
+
     } else {
-      state.selecionados.add(itemId);
+      state.quantidades.delete(
+        itemId
+      );
     }
 
     renderItems(
@@ -932,30 +1385,110 @@
     atualizarBarraSelecao();
   }
 
-  /**
-   * Atualiza a barra inferior.
-   */
-  function atualizarBarraSelecao() {
-    const total =
-      state.selecionados.size;
+  function encontrarItemPorId(itemId) {
+    const itens =
+      state.participante &&
+      Array.isArray(
+        state.participante.itens
+      )
+        ? state.participante.itens
+        : [];
 
-    elements.selectionBar.hidden =
-      total === 0 ||
-      state.appState === APP_STATES.SAVING;
-
-    elements.selectionCount.textContent =
-      total === 1
-        ? '1 item selecionado'
-        : total + ' itens selecionados';
+    return (
+      itens.find(function (item) {
+        return item.id === itemId;
+      }) || null
+    );
   }
 
-  /**
-   * Abre a tela de confirmação.
-   */
+  function getSelectedItems() {
+    const selecionados = [];
+
+    state.quantidades.forEach(
+      function (
+        quantidade,
+        itemId
+      ) {
+        const item =
+          encontrarItemPorId(
+            itemId
+          );
+
+        if (
+          item &&
+          quantidade > 0
+        ) {
+          selecionados.push({
+            id: item.id,
+            nome: item.nome,
+            quantidade:
+              quantidade
+          });
+        }
+      }
+    );
+
+    return selecionados;
+  }
+
+  function atualizarBarraSelecao() {
+    const selecionados =
+      getSelectedItems();
+
+    const totalItens =
+      selecionados.length;
+
+    const totalUnidades =
+      selecionados.reduce(
+        function (
+          sum,
+          item
+        ) {
+          return (
+            sum +
+            item.quantidade
+          );
+        },
+        0
+      );
+
+    elements.selectionBar.hidden =
+      totalItens === 0 ||
+      state.appState !==
+        APP_STATES.PARTICIPANT_FOUND;
+
+    if (totalItens === 0) {
+      elements.selectionCount.textContent =
+        '0 itens selecionados';
+
+      return;
+    }
+
+    const textoItens =
+      totalItens === 1
+        ? '1 item'
+        : totalItens +
+          ' itens';
+
+    const textoUnidades =
+      totalUnidades === 1
+        ? '1 unidade'
+        : totalUnidades +
+          ' unidades';
+
+    elements.selectionCount.textContent =
+      textoUnidades +
+      ' em ' +
+      textoItens;
+  }
+
   function openConfirmation() {
+    const selecionados =
+      getSelectedItems();
+
     if (
       !state.participante ||
-      !state.selecionados.size
+      selecionados.length === 0
     ) {
       return;
     }
@@ -963,30 +1496,36 @@
     state.lastFocusedElement =
       document.activeElement;
 
-    setAppState(APP_STATES.CONFIRMING);
+    setAppState(
+      APP_STATES.CONFIRMING
+    );
 
     elements.confirmationTitle.textContent =
-      'Confirmar retirada para ' +
-      state.participante.nome +
-      '?';
+      'Confirmar retirada?';
 
     elements.confirmationParticipant.textContent =
-      montarDescricaoParticipante(
-        state.participante
-      );
+      state.participante.nome +
+      ' • ' +
+      state.participante
+        .identificadorMascarado;
 
-    elements.confirmationList.replaceChildren();
+    elements.confirmationList
+      .replaceChildren();
 
-    getSelectedItems().forEach(
+    selecionados.forEach(
       function (item) {
         const li =
-          document.createElement('li');
+          document.createElement(
+            'li'
+          );
 
-        li.textContent = item.nome;
+        li.textContent =
+          item.quantidade +
+          ' × ' +
+          item.nome;
 
-        elements.confirmationList.appendChild(
-          li
-        );
+        elements.confirmationList
+          .appendChild(li);
       }
     );
 
@@ -996,15 +1535,15 @@
     elements.btnConfirmSave.focus();
   }
 
-  /**
-   * Fecha a tela de confirmação.
-   */
   function closeConfirmation() {
-    if (elements.confirmationSheet.hidden) {
+    if (
+      elements.confirmationSheet.hidden
+    ) {
       return;
     }
 
-    elements.confirmationSheet.hidden = true;
+    elements.confirmationSheet.hidden =
+      true;
 
     if (
       state.appState ===
@@ -1015,64 +1554,89 @@
       );
     }
 
-    if (state.lastFocusedElement) {
+    if (
+      state.lastFocusedElement &&
+      typeof state.lastFocusedElement
+        .focus === 'function'
+    ) {
       state.lastFocusedElement.focus();
     }
   }
 
-  /**
-   * Envia a retirada para a API.
-   */
   async function confirmarRetirada() {
+    const itens =
+      getSelectedItems();
+
     if (
       !state.participante ||
-      !state.selecionados.size ||
-      state.appState === APP_STATES.SAVING
+      !state.identificacaoAtual ||
+      itens.length === 0 ||
+      state.appState ===
+        APP_STATES.SAVING
     ) {
       return;
     }
 
-    const itens =
-      Array.from(state.selecionados);
-
     elements.confirmationSheet.hidden =
       true;
 
-    setAppState(APP_STATES.SAVING);
+    setAppState(
+      APP_STATES.SAVING
+    );
 
     try {
       const response =
-        await window.RetiradaAPI.registrarRetiradas({
-          matricula:
-            state.participante.matricula,
+        await window.RetiradaAPI
+          .registrarRetiradas({
+            tipoParticipante:
+              state.identificacaoAtual
+                .tipoParticipante,
 
-          itens: itens
-        });
+            identificador:
+              state.identificacaoAtual
+                .identificador,
+
+            itens:
+              itens.map(
+                function (item) {
+                  return {
+                    id: item.id,
+                    quantidade:
+                      item.quantidade
+                  };
+                }
+              )
+          });
+
+      const data =
+        response.data || {};
 
       const registrados =
-        response.data &&
         Array.isArray(
-          response.data.itensRegistrados
+          data.itensRegistrados
         )
-          ? response.data.itensRegistrados.length
-          : 0;
+          ? data.itensRegistrados
+          : [];
 
       setAppState(
         APP_STATES.SUCCESS,
         {
-          title: registrados
-            ? 'Retirada registrada'
-            : 'Nenhum item registrado',
+          title:
+            registrados.length
+              ? 'Retirada registrada'
+              : 'Nenhum item registrado',
 
           message:
-            response.message ||
-            'Operação concluída.',
+            registrados.length
+              ? 'As quantidades foram registradas com sucesso.'
+              : 'Nenhuma quantidade pôde ser registrada.',
 
-          data: response.data
+          data: data
         }
       );
 
       scheduleAutoReset();
+
     } catch (error) {
       console.error(
         'Erro ao registrar retirada:',
@@ -1096,9 +1660,6 @@
     }
   }
 
-  /**
-   * Apresenta a tela de resultado.
-   */
   function renderResultado(
     type,
     details
@@ -1133,7 +1694,8 @@
     elements.resultMessage.textContent =
       details.message || '';
 
-    elements.resultDetails.replaceChildren();
+    elements.resultDetails
+      .replaceChildren();
 
     if (details.data) {
       renderResultadoDetalhes(
@@ -1147,143 +1709,131 @@
         : 'Nova consulta';
   }
 
-  /**
-   * Apresenta itens registrados e ignorados.
-   */
   function renderResultadoDetalhes(data) {
-    if (
+    const registrados =
       Array.isArray(
         data.itensRegistrados
-      ) &&
-      data.itensRegistrados.length
-    ) {
-      const registrados =
-        data.itensRegistrados.map(
-          formatarItemResultado
-        );
+      )
+        ? data.itensRegistrados.map(
+            function (item) {
+              const nome =
+                item.nome ||
+                item.item ||
+                item.id;
 
-      elements.resultDetails.appendChild(
-        criarGrupoDetalhe(
-          'Itens registrados',
-          registrados
-        )
-      );
+              const quantidade =
+                Number(
+                  item.quantidade
+                ) || 1;
+
+              const saldo =
+                Number(
+                  item.saldoAposRetirada
+                );
+
+              const complemento =
+                Number.isFinite(saldo)
+                  ? ' • Saldo: ' +
+                    saldo
+                  : '';
+
+              return (
+                quantidade +
+                ' × ' +
+                nome +
+                complemento
+              );
+            }
+          )
+        : [];
+
+    if (registrados.length) {
+      elements.resultDetails
+        .appendChild(
+          criarGrupoDetalhe(
+            'Itens registrados',
+            registrados
+          )
+        );
     }
 
-    if (
+    const ignorados =
       Array.isArray(
         data.itensIgnorados
-      ) &&
-      data.itensIgnorados.length
-    ) {
-      const ignorados =
-        data.itensIgnorados.map(
-          formatarItemIgnorado
+      )
+        ? data.itensIgnorados.map(
+            function (item) {
+              if (
+                typeof item ===
+                'string'
+              ) {
+                return item;
+              }
+
+              const nome =
+                item.nome ||
+                item.item ||
+                item.id;
+
+              return (
+                nome +
+                ': ' +
+                traduzirMotivoIgnorado(
+                  item.motivo,
+                  item.saldoDisponivel
+                )
+              );
+            }
+          )
+        : [];
+
+    if (ignorados.length) {
+      elements.resultDetails
+        .appendChild(
+          criarGrupoDetalhe(
+            'Itens não registrados',
+            ignorados
+          )
         );
-
-      elements.resultDetails.appendChild(
-        criarGrupoDetalhe(
-          'Itens ignorados',
-          ignorados
-        )
-      );
     }
   }
 
-  /**
-   * Converte um item retornado pela API em texto.
-   */
-  function formatarItemResultado(item) {
-    if (
-      typeof item === 'string' ||
-      typeof item === 'number'
-    ) {
-      return String(item);
-    }
-
-    if (
-      !item ||
-      typeof item !== 'object'
-    ) {
-      return 'Item não identificado';
-    }
-
-    return String(
-      item.nome ||
-      item.itemNome ||
-      item.label ||
-      item.id ||
-      item.itemId ||
-      'Item não identificado'
-    );
-  }
-
-  /**
-   * Converte um item ignorado em texto.
-   */
-  function formatarItemIgnorado(item) {
-    if (
-      typeof item === 'string' ||
-      typeof item === 'number'
-    ) {
-      return String(item);
-    }
-
-    if (
-      !item ||
-      typeof item !== 'object'
-    ) {
-      return (
-        'Item não identificado: ' +
-        'não registrado'
-      );
-    }
-
-    const nome =
-      formatarItemResultado(item);
-
-    const motivo =
-      String(
-        item.motivo ||
-        item.reason ||
-        item.message ||
-        item.erro ||
-        'não registrado'
-      );
-
-    return nome + ': ' + motivo;
-  }
-
-  /**
-   * Cria um grupo de detalhes.
-   */
   function criarGrupoDetalhe(
     titulo,
     itens
   ) {
     const group =
-      document.createElement('div');
+      document.createElement(
+        'div'
+      );
 
-    group.className = 'detail-group';
+    group.className =
+      'detail-group';
 
     const strong =
-      document.createElement('strong');
+      document.createElement(
+        'strong'
+      );
 
-    strong.textContent = titulo;
+    strong.textContent =
+      titulo;
 
     const list =
-      document.createElement('ul');
+      document.createElement(
+        'ul'
+      );
 
-    itens.forEach(
-      function (item) {
-        const li =
-          document.createElement('li');
+    itens.forEach(function (item) {
+      const li =
+        document.createElement(
+          'li'
+        );
 
-        li.textContent = String(item);
+      li.textContent =
+        item;
 
-        list.appendChild(li);
-      }
-    );
+      list.appendChild(li);
+    });
 
     group.append(
       strong,
@@ -1293,54 +1843,81 @@
     return group;
   }
 
-  /**
-   * Retorna os objetos dos itens selecionados.
-   */
-  function getSelectedItems() {
-    const itens =
-      state.participante &&
-      Array.isArray(
-        state.participante.itens
-      )
-        ? state.participante.itens
-        : [];
+  function traduzirMotivoIgnorado(
+    motivo,
+    saldoDisponivel
+  ) {
+    const mensagens = {
+      ITEM_NAO_CONFIGURADO:
+        'item não configurado',
 
-    return itens.filter(
-      function (item) {
-        return state.selecionados.has(
-          item.id
-        );
-      }
-    );
+      ITEM_INATIVO:
+        'item inativo',
+
+      COLUNA_NAO_ENCONTRADA:
+        'coluna não encontrada',
+
+      SEM_DIREITO:
+        'participante sem direito',
+
+      SALDO_ESGOTADO:
+        'saldo esgotado',
+
+      QUANTIDADE_MAIOR_QUE_SALDO:
+        'quantidade superior ao saldo disponível'
+    };
+
+    const mensagem =
+      mensagens[motivo] ||
+      motivo ||
+      'não registrado';
+
+    if (
+      motivo ===
+        'QUANTIDADE_MAIOR_QUE_SALDO' &&
+      Number.isFinite(
+        Number(
+          saldoDisponivel
+        )
+      )
+    ) {
+      return (
+        mensagem +
+        ' (' +
+        saldoDisponivel +
+        ')'
+      );
+    }
+
+    return mensagem;
   }
 
-  /**
-   * Retorna à tela inicial.
-   */
   function resetApplication() {
     clearResetTimer();
     closeConfirmation();
     closeQrReader();
 
-    state.matriculaDigitada = '';
+    state.identificadorDigitado = '';
+    state.identificacaoAtual = null;
     state.participante = null;
-    state.selecionados.clear();
+
+    state.quantidades.clear();
 
     elements.input.value = '';
 
-    atualizarDisplayMatricula();
+    atualizarDisplayIdentificador();
 
-    setAppState(APP_STATES.IDLE);
+    setAppState(
+      APP_STATES.IDLE
+    );
   }
 
-  /**
-   * Abre o leitor de QR Code.
-   */
   async function openQrReader() {
     state.lastFocusedElement =
       document.activeElement;
 
-    elements.qrSheet.hidden = false;
+    elements.qrSheet.hidden =
+      false;
 
     elements.qrMessage.textContent =
       'Preparando câmera...';
@@ -1359,21 +1936,27 @@
 
       await state.qrScanner.start(
         {
-          facingMode: 'environment'
+          facingMode:
+            'environment'
         },
+
         {
           fps: 8,
+
           qrbox: {
             width: 220,
             height: 220
           }
         },
+
         handleQrSuccess,
+
         function () {}
       );
 
       elements.qrMessage.textContent =
-        'Aponte a câmera para o QR Code.';
+        'Aponte a câmera para o QR Code da matrícula ou CPF.';
+
     } catch (error) {
       console.error(
         'Erro ao abrir leitor QR:',
@@ -1385,9 +1968,6 @@
     }
   }
 
-  /**
-   * Fecha o leitor de QR Code.
-   */
   async function closeQrReader() {
     if (
       state.qrScanner &&
@@ -1395,6 +1975,7 @@
     ) {
       try {
         await state.qrScanner.stop();
+
       } catch (error) {
         console.warn(
           'Erro ao fechar leitor QR:',
@@ -1403,17 +1984,21 @@
       }
     }
 
-    elements.qrSheet.hidden = true;
-    elements.qrMessage.textContent = '';
+    elements.qrSheet.hidden =
+      true;
 
-    if (state.lastFocusedElement) {
+    elements.qrMessage.textContent =
+      '';
+
+    if (
+      state.lastFocusedElement &&
+      typeof state.lastFocusedElement
+        .focus === 'function'
+    ) {
       state.lastFocusedElement.focus();
     }
   }
 
-  /**
-   * Trata a leitura de QR Code.
-   */
   async function handleQrSuccess(
     decodedText
   ) {
@@ -1423,53 +2008,58 @@
 
     state.qrReading = true;
 
-    const matricula =
-      extrairMatriculaDoQr(
+    const identificador =
+      extrairIdentificadorDoQr(
         decodedText
       );
 
     await closeQrReader();
 
-    if (!matricula) {
+    if (!identificador) {
       showToast(
-        'QR Code sem matrícula numérica reconhecida.',
+        'QR Code sem matrícula ou CPF reconhecido.',
         'error'
       );
 
       return;
     }
 
-    state.matriculaDigitada =
-      matricula;
+    state.identificadorDigitado =
+      identificador;
 
     elements.input.value =
-      matricula;
+      identificador;
 
-    atualizarDisplayMatricula();
+    atualizarDisplayIdentificador();
     consultarParticipante();
   }
 
-  /**
-   * Carrega a biblioteca de QR Code.
-   */
   function carregarQrLibrary() {
     if (window.Html5Qrcode) {
       return Promise.resolve();
     }
 
     return new Promise(
-      function (resolve, reject) {
+      function (
+        resolve,
+        reject
+      ) {
         const script =
-          document.createElement('script');
+          document.createElement(
+            'script'
+          );
 
         script.src =
           (
             window.APP_CONFIG &&
-            window.APP_CONFIG.QR_LIBRARY_URL
+            window.APP_CONFIG
+              .QR_LIBRARY_URL
           ) || '';
 
         script.async = true;
-        script.onload = resolve;
+
+        script.onload =
+          resolve;
 
         script.onerror =
           function () {
@@ -1482,45 +2072,63 @@
             );
           };
 
-        document.head.appendChild(script);
+        document.head.appendChild(
+          script
+        );
       }
     );
   }
 
-  /**
-   * Extrai a matrícula do conteúdo do QR Code.
-   */
-  function extrairMatriculaDoQr(texto) {
+  function extrairIdentificadorDoQr(
+    texto
+  ) {
     const valor =
-      String(texto || '').trim();
+      String(
+        texto || ''
+      ).trim();
 
     try {
       const url =
         new URL(valor);
 
       const param =
-        url.searchParams.get('matricula') ||
-        url.searchParams.get('mat') ||
-        url.searchParams.get('codigo');
+        url.searchParams.get(
+          'cpf'
+        ) ||
+        url.searchParams.get(
+          'matricula'
+        ) ||
+        url.searchParams.get(
+          'mat'
+        ) ||
+        url.searchParams.get(
+          'identificador'
+        ) ||
+        url.searchParams.get(
+          'codigo'
+        );
 
       if (param) {
         return sanitizarEntradaNumerica(
           param
-        );
+        ).slice(0, 11);
       }
+
     } catch (error) {
-      // O QR Code pode conter apenas o número.
+      /*
+       * QR Codes simples podem conter
+       * somente os números.
+       */
     }
 
     return sanitizarEntradaNumerica(
       valor
-    );
+    ).slice(0, 11);
   }
 
-  /**
-   * Fecha os modais ao clicar no fundo.
-   */
-  function handleSheetBackdropClick(event) {
+  function handleSheetBackdropClick(
+    event
+  ) {
     if (
       event.target ===
       elements.confirmationSheet
@@ -1536,15 +2144,14 @@
     }
   }
 
-  /**
-   * Apresenta uma mensagem temporária.
-   */
   function showToast(
     message,
     type
   ) {
     const toast =
-      document.createElement('div');
+      document.createElement(
+        'div'
+      );
 
     toast.className =
       (
@@ -1552,7 +2159,8 @@
         (type || '')
       ).trim();
 
-    toast.textContent = message;
+    toast.textContent =
+      message;
 
     elements.toastRegion.appendChild(
       toast
@@ -1566,13 +2174,22 @@
     );
   }
 
-  /**
-   * Converte códigos técnicos em mensagens.
-   */
   function mapErrorMessage(error) {
     const messages = {
       CONFIG_API_URL_AUSENTE:
-        'Configure a URL do Web App em js/config.js antes de consultar.',
+        'Configure a URL do Web App em js/config.js.',
+
+      IDENTIFICADOR_VAZIO:
+        'Digite a matrícula ou o CPF.',
+
+      IDENTIFICADOR_INVALIDO:
+        'Digite uma matrícula de até 4 dígitos ou um CPF com 11 dígitos.',
+
+      MATRICULA_INVALIDA:
+        'A matrícula deve possuir até 4 dígitos.',
+
+      CPF_INVALIDO:
+        'O CPF informado é inválido.',
 
       TIMEOUT:
         'A planilha demorou para responder. Tente novamente.',
@@ -1580,59 +2197,87 @@
       ERRO_REDE:
         'Verifique a internet e tente novamente.',
 
+      ERRO_HTTP:
+        'O servidor não respondeu corretamente.',
+
       RESPOSTA_INVALIDA:
-        'A resposta do servidor não pode ser lida. Confira a URL do Web App.',
+        'A resposta do servidor não pôde ser lida.',
 
       PARTICIPANTE_NAO_ENCONTRADO:
-        'Matrícula não encontrada.',
+        'Participante não encontrado.',
 
-      ITEM_NAO_DISPONIVEL:
-        'Um ou mais itens não estão mais disponíveis.',
+      CHAVE_BUSCA_DUPLICADA:
+        'Existe mais de um cadastro com este identificador.',
+
+      QUANTIDADE_MAIOR_QUE_SALDO:
+        'A quantidade escolhida supera o saldo disponível.',
+
+      SALDO_ESGOTADO:
+        'O saldo deste item já foi utilizado.',
 
       ERRO_LOCK:
         'Outro atendimento está gravando agora. Tente novamente em instantes.',
-
-      SISTEMA_OCUPADO:
-        'Outro atendimento está sendo registrado. Aguarde alguns instantes e tente novamente.',
 
       ERRO_INTERNO:
         'Ocorreu um erro interno na planilha.'
     };
 
     return (
-      messages[error.code] ||
-      error.message ||
+      messages[
+        error && error.code
+      ] ||
+      (
+        error &&
+        error.message
+      ) ||
       'Não foi possível concluir a operação.'
     );
   }
 
-  /**
-   * Mantém somente números.
-   */
-  function sanitizarEntradaNumerica(valor) {
-    return String(valor || '')
-      .replace(/\s+/g, '')
-      .replace(/\D+/g, '');
+  function sanitizarEntradaNumerica(
+    valor
+  ) {
+    return String(
+      valor || ''
+    ).replace(
+      /\D+/g,
+      ''
+    );
   }
 
-  /**
-   * Limpa os dados das telas anteriores.
-   */
   function limparDadosParticipante() {
+    elements.cardEyebrow.textContent =
+      'Participante';
+
     elements.participantName.textContent =
       '';
 
     elements.participantMatricula.textContent =
       '';
 
-    elements.itemsContainer.replaceChildren();
-    elements.resultDetails.replaceChildren();
+    elements.itemsContainer
+      .replaceChildren();
+
+    elements.resultDetails
+      .replaceChildren();
   }
 
-  /**
-   * Devolve o foco ao campo numérico.
-   */
   function focarEntrada() {
+    const touchInterface =
+      window.matchMedia(
+        '(pointer: coarse)'
+      ).matches ||
+      window.matchMedia(
+        '(hover: none)'
+      ).matches;
+
+    if (
+      touchInterface ||
+      elements.input.readOnly
+    ) {
+      return;
+    }
+
     window.setTimeout(
       function () {
         elements.input.focus();
@@ -1641,9 +2286,6 @@
     );
   }
 
-  /**
-   * Programa o retorno automático.
-   */
   function scheduleAutoReset() {
     const timeoutMs =
       Number(
@@ -1659,32 +2301,28 @@
       );
   }
 
-  /**
-   * Cancela o retorno automático.
-   */
   function clearResetTimer() {
     if (state.resetTimer) {
       window.clearTimeout(
         state.resetTimer
       );
 
-      state.resetTimer = null;
+      state.resetTimer =
+        null;
     }
   }
 
-  /**
-   * Registra o Service Worker.
-   */
   function registrarServiceWorker() {
     if (
       'serviceWorker' in navigator &&
-      window.location.protocol !== 'file:'
+      window.location.protocol !==
+        'file:'
     ) {
       navigator.serviceWorker
         .register('sw.js')
         .catch(function (error) {
           console.warn(
-            'Service Worker não registrado:',
+            'Service worker não registrado:',
             error
           );
         });

@@ -6,18 +6,22 @@
  * Projeto:
  * Controle de retirada de alimentos — Almoço Junino 2026
  *
+ * Objetivo:
+ * Controlar o cache dos arquivos estáticos da versão 2.1 de homologação.
+ *
  * Estratégia:
  * - HTML, CSS, JavaScript e manifesto: rede primeiro.
  * - Imagens e ícones: cache primeiro.
- * - Requisições externas e chamadas à API: nunca armazenadas.
- * - Exclusão automática de versões antigas do cache.
+ * - Chamadas externas e Google Apps Script: não interceptadas.
+ * - Requisições POST: não interceptadas.
+ * - Caches antigos: removidos automaticamente.
  *
- * Versão: 3.0
- * Data: 27/06/2026
+ * Versão: 4.0
+ * Data: 29/06/2026
  * ============================================================================
  */
 
-const CACHE_NAME = 'retirada-alimentos-static-v3';
+const CACHE_NAME = 'retirada-alimentos-static-v4';
 
 const STATIC_ASSETS = [
   './',
@@ -31,6 +35,7 @@ const STATIC_ASSETS = [
   './assets/icons/icon.svg',
   './assets/logo/sorri-bauru-header.png'
 ];
+
 
 /**
  * Instala o Service Worker e pré-carrega os arquivos essenciais.
@@ -48,8 +53,9 @@ self.addEventListener('install', function (event) {
   );
 });
 
+
 /**
- * Remove caches antigos e assume imediatamente o controle das páginas abertas.
+ * Remove caches antigos e assume o controle das páginas abertas.
  */
 self.addEventListener('activate', function (event) {
   event.waitUntil(
@@ -72,15 +78,15 @@ self.addEventListener('activate', function (event) {
   );
 });
 
+
 /**
- * Controla as requisições realizadas pela aplicação.
+ * Controla as requisições da aplicação.
  */
 self.addEventListener('fetch', function (event) {
   const request = event.request;
 
   /*
-   * O Service Worker só trata requisições GET.
-   * Requisições POST de retirada nunca são interceptadas.
+   * Requisições POST e demais métodos nunca são interceptados.
    */
   if (request.method !== 'GET') {
     return;
@@ -89,10 +95,12 @@ self.addEventListener('fetch', function (event) {
   const requestUrl = new URL(request.url);
 
   /*
-   * Não intercepta:
+   * Não intercepta chamadas para outros domínios.
+   *
+   * Isso inclui:
    * - Google Apps Script;
-   * - bibliotecas externas;
-   * - qualquer outro domínio.
+   * - biblioteca do leitor de QR Code;
+   * - qualquer serviço externo.
    */
   if (requestUrl.origin !== self.location.origin) {
     return;
@@ -107,7 +115,7 @@ self.addEventListener('fetch', function (event) {
 
   /*
    * Navegação:
-   * tenta carregar a versão atual da rede e utiliza o cache como alternativa.
+   * rede primeiro, com index.html em cache como alternativa.
    */
   if (request.mode === 'navigate') {
     event.respondWith(
@@ -133,7 +141,7 @@ self.addEventListener('fetch', function (event) {
     pathname.endsWith('.webmanifest');
 
   /*
-   * HTML, CSS, JavaScript e manifesto:
+   * Arquivos que podem sofrer atualização frequente:
    * rede primeiro, cache como alternativa.
    */
   if (arquivoAtualizavel) {
@@ -152,25 +160,28 @@ self.addEventListener('fetch', function (event) {
   }
 
   /*
-   * Imagens, ícones e outros arquivos estáticos:
+   * Imagens e ícones:
    * cache primeiro, rede como alternativa.
    */
   event.respondWith(
-    caches.match(request).then(function (cachedResponse) {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
+    caches
+      .match(request)
+      .then(function (cachedResponse) {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
 
-      return fetch(request).then(function (networkResponse) {
-        atualizarCache_(request, networkResponse);
-        return networkResponse;
-      });
-    })
+        return fetch(request).then(function (networkResponse) {
+          atualizarCache_(request, networkResponse);
+          return networkResponse;
+        });
+      })
   );
 });
 
+
 /**
- * Atualiza o cache somente quando a resposta for válida e pertencer
+ * Atualiza o cache somente quando a resposta é válida e pertence
  * ao mesmo domínio da aplicação.
  */
 function atualizarCache_(request, response) {
@@ -184,7 +195,12 @@ function atualizarCache_(request, response) {
 
   const responseClone = response.clone();
 
-  caches.open(CACHE_NAME).then(function (cache) {
-    cache.put(request, responseClone);
-  });
+  caches
+    .open(CACHE_NAME)
+    .then(function (cache) {
+      return cache.put(
+        request,
+        responseClone
+      );
+    });
 }

@@ -24,7 +24,7 @@
      * Deve ser utilizada a URL terminada em /exec.
      */
     API_URL:
-      'https://script.google.com/macros/s/AKfycbw7mZNb3Y7PdNtROsRdtZDzFtuX-AFJtE3kmn9Hs9_aw-0dmOxLzKv2DUy5zW_6EPIqEw/exec',
+      'https://script.google.com/macros/s/AKfycbzLc3wDUrECxyG1U3hSSD27tC6KOPaREHKg483lWhh7sLZZDXyO1eiClqi6Bt324dO7SA/exec',
 
     /**
      * Identificação do operador enviada para o histórico.
