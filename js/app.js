@@ -1,2331 +1,375 @@
 /**
- * ============================================================================
- * INTERFACE — CONTROLE DE RETIRADA DE ALIMENTOS
- * ============================================================================
- *
- * Projeto:
- * Controle de retirada de alimentos — Almoço Junino 2026
- *
- * Objetivo:
- * Controlar a interface de consulta e retirada para funcionários e pacientes.
- *
- * Regras:
- * - Matrícula: de 1 a 4 dígitos.
- * - CPF: 11 dígitos.
- * - Funcionários não possuem acompanhantes.
- * - Pacientes podem possuir acompanhantes.
- * - Cada alimento permite selecionar uma quantidade.
- * - A quantidade máxima é limitada ao saldo devolvido pelo servidor.
- * - O Apps Script realiza novamente todas as validações antes da gravação.
- *
- * Versão: 2.1
- * Data: 29/06/2026
- * ============================================================================
+ * Interface — Controle de entrada no Festival de Música 2026.
  */
-
 (function () {
   'use strict';
 
-  const APP_STATES = Object.freeze({
-    IDLE: 'IDLE',
-    LOADING: 'LOADING',
-    PARTICIPANT_FOUND: 'PARTICIPANT_FOUND',
-    CONFIRMING: 'CONFIRMING',
-    SAVING: 'SAVING',
-    SUCCESS: 'SUCCESS',
-    NOT_FOUND: 'NOT_FOUND',
-    ERROR: 'ERROR'
-  });
-
-  const ITEM_STATUS = Object.freeze({
-    AVAILABLE: 'DISPONIVEL',
-    REDEEMED: 'RETIRADO',
-    BLOCKED: 'SEM_DIREITO',
-    INACTIVE: 'INATIVO'
-  });
-
-  const ICONS = Object.freeze({
-    check: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="m5 12 4 4L19 6"/>
-      </svg>
-    `,
-
-    plus: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 5v14"/>
-        <path d="M5 12h14"/>
-      </svg>
-    `,
-
-    minus: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M5 12h14"/>
-      </svg>
-    `,
-
-    lock: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="5" y="11" width="14" height="10" rx="2"/>
-        <path d="M8 11V8a4 4 0 0 1 8 0v3"/>
-      </svg>
-    `,
-
-    alert: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 9v4"/>
-        <path d="M12 17h.01"/>
-        <path
-          d="M10.3 4.4 2.8 17.5A2 2 0 0 0 4.5 20h15a2 2 0 0 0 1.7-2.5L13.7 4.4a2 2 0 0 0-3.4 0Z"
-        />
-      </svg>
-    `,
-
-    food: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M4 3v18"/>
-        <path d="M8 3v8a4 4 0 0 1-4 4"/>
-        <path d="M14 3v18"/>
-        <path d="M14 3c3 0 6 3 6 7v2c0 2-1.5 3.5-3.5 3.5H14"/>
-      </svg>
-    `,
-
-    cachorro_quente: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          d="M5.2 8.2c-2.2 1.3-3.1 4.1-1.8 6.3 1.3 2.2 4.1 3 6.3 1.8l9.1-5.3c2.2-1.3 3-4.1 1.8-6.3-1.3-2.2-4.1-3-6.3-1.8Z"
-        />
-        <path d="m7.2 13.3 9.6-5.6"/>
-        <path d="M8.5 9.2c.8.2 1.3.8 1.8 1.4.6.7 1.1 1.2 2 1.4"/>
-      </svg>
-    `,
-
-    caldo_mandioca: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M4 9h16l-1.1 7.1A4 4 0 0 1 15 19H9a4 4 0 0 1-3.9-2.9Z"/>
-        <path d="M8 5c0 1 1 1.5 1 2.5"/>
-        <path d="M12 4c0 1 1 1.5 1 2.5"/>
-        <path d="M16 5c0 1 1 1.5 1 2.5"/>
-      </svg>
-    `,
-
-    pipoca: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="m6 9 1.4 11h9.2L18 9"/>
-        <path d="M6 9h12"/>
-        <path d="M8.5 9 10 20"/>
-        <path d="m15.5 9-1.5 11"/>
-        <path d="M7 8a2.5 2.5 0 0 1 3.8-2.1A3 3 0 0 1 16 7.5c0 .2 0 .3-.1.5"/>
-        <path d="M10.8 5.9A2.5 2.5 0 0 1 15 4.5"/>
-      </svg>
-    `,
-
-    canjica: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M4 10h16l-1 6a4 4 0 0 1-4 3H9a4 4 0 0 1-4-3Z"/>
-        <path d="M7 10c.5-2.8 2.2-4 5-4s4.5 1.2 5 4"/>
-        <circle cx="9" cy="9" r=".7"/>
-        <circle cx="12" cy="8" r=".7"/>
-        <circle cx="15" cy="9" r=".7"/>
-      </svg>
-    `,
-
-    bolo: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M5 9h14v10H5Z"/>
-        <path d="M5 13h14"/>
-        <path d="M8 6h8l3 3H5Z"/>
-        <path d="M9 16h6"/>
-      </svg>
-    `,
-
-    refrigerante: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M7 7h10l-1 14H8Z"/>
-        <path d="M6 7h12"/>
-        <path d="m10 3 4 4"/>
-        <path d="M10 12h4"/>
-      </svg>
-    `,
-
-    doces_tipicos: `
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="m8 7 8 10"/>
-        <path d="m16 7-8 10"/>
-        <path d="M6 5 3 7l2 3"/>
-        <path d="m18 5 3 2-2 3"/>
-        <path d="M8 7c2-2 6-2 8 0l2 3c-2 3-4 5-6 7-2-2-4-4-6-7Z"/>
-      </svg>
-    `
-  });
-
   const state = {
-    appState: APP_STATES.IDLE,
-    identificadorDigitado: '',
-    identificacaoAtual: null,
-    participante: null,
-    quantidades: new Map(),
-    resetTimer: null,
+    convite: null,
+    adultosAgora: 0,
+    menoresAgora: 0,
     qrScanner: null,
-    qrReading: false,
-    lastFocusedElement: null
+    qrReading: false
   };
 
-  const elements = {};
+  const el = {};
 
-  document.addEventListener(
-    'DOMContentLoaded',
-    init
-  );
+  document.addEventListener('DOMContentLoaded', init);
 
   function init() {
-    cacheElements();
-    configurarTextosIniciais();
-    bindEvents();
-    atualizarDisplayIdentificador();
-    setAppState(APP_STATES.IDLE);
-    registrarServiceWorker();
+    cache();
+    bind();
+    showScreen('idle');
   }
 
-  function cacheElements() {
-    elements.screens = {
-      idle: document.getElementById(
-        'screen-idle'
-      ),
-
-      loading: document.getElementById(
-        'screen-loading'
-      ),
-
-      participant: document.getElementById(
-        'screen-participant'
-      ),
-
-      result: document.getElementById(
-        'screen-result'
-      )
+  function cache() {
+    el.screens = {
+      idle: document.getElementById('screen-idle'),
+      loading: document.getElementById('screen-loading'),
+      participant: document.getElementById('screen-participant'),
+      result: document.getElementById('screen-result')
     };
 
-    elements.entryTitle =
-      document.getElementById(
-        'initial-title'
-      );
+    el.input = document.getElementById('id-qr-input');
+    el.btnSearch = document.getElementById('btn-search');
+    el.btnOpenQr = document.getElementById('btn-open-qr');
+    el.btnCloseQr = document.getElementById('btn-close-qr');
+    el.qrSheet = document.getElementById('qr-sheet');
+    el.qrReader = document.getElementById('qr-reader');
+    el.qrMessage = document.getElementById('qr-message');
 
-    elements.entryDescription =
-      document.querySelector(
-        '#screen-idle .entry-copy p'
-      );
+    el.name = document.getElementById('participant-name');
+    el.type = document.getElementById('participant-type');
+    el.phone = document.getElementById('participant-phone');
+    el.user = document.getElementById('participant-user');
+    el.statusBadge = document.getElementById('status-badge');
 
-    elements.input =
-      document.getElementById(
-        'matricula-input'
-      );
+    el.authorityAlert = document.getElementById('authority-alert');
+    el.authorityNote = document.getElementById('authority-note');
+    el.supportAlert = document.getElementById('support-alert');
+    el.supportNote = document.getElementById('support-note');
 
-    elements.display =
-      document.getElementById(
-        'display-matricula'
-      );
+    el.adultAuthorized = document.getElementById('adult-authorized');
+    el.adultUsed = document.getElementById('adult-used');
+    el.adultRemaining = document.getElementById('adult-remaining');
+    el.adultNow = document.getElementById('adult-now');
 
-    elements.keypad =
-      document.querySelector(
-        '.keypad'
-      );
+    el.minorAuthorized = document.getElementById('minor-authorized');
+    el.minorUsed = document.getElementById('minor-used');
+    el.minorRemaining = document.getElementById('minor-remaining');
+    el.minorNow = document.getElementById('minor-now');
 
-    elements.btnClear =
-      document.getElementById(
-        'btn-clear'
-      );
+    el.ticketGrid = document.querySelector('.ticket-grid');
+    el.btnCancelEntry = document.getElementById('btn-cancel-entry');
+    el.btnConfirmOpen = document.getElementById('btn-confirm-open');
 
-    elements.btnBackspace =
-      document.getElementById(
-        'btn-backspace'
-      );
+    el.confirmationSheet = document.getElementById('confirmation-sheet');
+    el.confirmationParticipant = document.getElementById('confirmation-participant');
+    el.confirmationList = document.getElementById('confirmation-list');
+    el.btnCancelConfirmation = document.getElementById('btn-cancel-confirmation');
+    el.btnConfirmSave = document.getElementById('btn-confirm-save');
 
-    elements.btnSearch =
-      document.getElementById(
-        'btn-search'
-      );
-
-    elements.btnOpenQr =
-      document.getElementById(
-        'btn-open-qr'
-      );
-
-    elements.loadingTitle =
-      document.querySelector(
-        '#screen-loading h2'
-      );
-
-    elements.cardEyebrow =
-      document.querySelector(
-        '#screen-participant .card-eyebrow'
-      );
-
-    elements.participantName =
-      document.getElementById(
-        'participant-name'
-      );
-
-    elements.participantMatricula =
-      document.getElementById(
-        'participant-matricula'
-      );
-
-    elements.itemsContainer =
-      document.getElementById(
-        'items-container'
-      );
-
-    elements.selectionBar =
-      document.getElementById(
-        'selection-bar'
-      );
-
-    elements.selectionCount =
-      document.getElementById(
-        'selection-count'
-      );
-
-    elements.btnConfirmOpen =
-      document.getElementById(
-        'btn-confirm-open'
-      );
-
-    elements.confirmationSheet =
-      document.getElementById(
-        'confirmation-sheet'
-      );
-
-    elements.confirmationTitle =
-      document.getElementById(
-        'confirmation-title'
-      );
-
-    elements.confirmationParticipant =
-      document.getElementById(
-        'confirmation-participant'
-      );
-
-    elements.confirmationList =
-      document.getElementById(
-        'confirmation-list'
-      );
-
-    elements.btnCancelConfirmation =
-      document.getElementById(
-        'btn-cancel-confirmation'
-      );
-
-    elements.btnConfirmSave =
-      document.getElementById(
-        'btn-confirm-save'
-      );
-
-    elements.resultCard =
-      document.getElementById(
-        'result-card'
-      );
-
-    elements.resultIcon =
-      document.getElementById(
-        'result-icon'
-      );
-
-    elements.resultTitle =
-      document.getElementById(
-        'result-title'
-      );
-
-    elements.resultMessage =
-      document.getElementById(
-        'result-message'
-      );
-
-    elements.resultDetails =
-      document.getElementById(
-        'result-details'
-      );
-
-    elements.btnNewSearch =
-      document.getElementById(
-        'btn-new-search'
-      );
-
-    elements.btnCloseQr =
-      document.getElementById(
-        'btn-close-qr'
-      );
-
-    elements.qrSheet =
-      document.getElementById(
-        'qr-sheet'
-      );
-
-    elements.qrReader =
-      document.getElementById(
-        'qr-reader'
-      );
-
-    elements.qrMessage =
-      document.getElementById(
-        'qr-message'
-      );
-
-    elements.toastRegion =
-      document.getElementById(
-        'toast-region'
-      );
+    el.resultCard = document.getElementById('result-card');
+    el.resultIcon = document.getElementById('result-icon');
+    el.resultTitle = document.getElementById('result-title');
+    el.resultMessage = document.getElementById('result-message');
+    el.resultDetails = document.getElementById('result-details');
+    el.btnNewSearch = document.getElementById('btn-new-search');
+    el.toastRegion = document.getElementById('toast-region');
   }
 
-  function configurarTextosIniciais() {
-    if (elements.entryTitle) {
-      elements.entryTitle.textContent =
-        'Digite a matrícula ou CPF';
-    }
-
-    if (elements.entryDescription) {
-      elements.entryDescription.textContent =
-        'Funcionários usam a matrícula. Pacientes usam o CPF.';
-    }
-
-    elements.btnSearch.textContent =
-      'Consultar participante';
-
-    elements.input.maxLength = 11;
-
-    elements.input.setAttribute(
-      'aria-label',
-      'Matrícula ou CPF'
-    );
-  }
-
-  function bindEvents() {
-    elements.keypad.addEventListener(
-      'click',
-      handleKeypadClick
-    );
-
-    elements.btnClear.addEventListener(
-      'click',
-      limparIdentificador
-    );
-
-    elements.btnBackspace.addEventListener(
-      'click',
-      apagarUltimoDigito
-    );
-
-    elements.btnSearch.addEventListener(
-      'click',
-      consultarParticipante
-    );
-
-    elements.input.addEventListener(
-      'input',
-      handleInputChange
-    );
-
-    elements.input.addEventListener(
-      'keydown',
-      handleInputKeydown
-    );
-
-    document.addEventListener(
-      'keydown',
-      handleGlobalKeydown
-    );
-
-    elements.itemsContainer.addEventListener(
-      'click',
-      handleItemsClick
-    );
-
-    elements.btnConfirmOpen.addEventListener(
-      'click',
-      openConfirmation
-    );
-
-    elements.btnCancelConfirmation.addEventListener(
-      'click',
-      closeConfirmation
-    );
-
-    elements.btnConfirmSave.addEventListener(
-      'click',
-      confirmarRetirada
-    );
-
-    elements.btnNewSearch.addEventListener(
-      'click',
-      resetApplication
-    );
-
-    elements.btnOpenQr.addEventListener(
-      'click',
-      openQrReader
-    );
-
-    elements.btnCloseQr.addEventListener(
-      'click',
-      closeQrReader
-    );
-
-    elements.confirmationSheet.addEventListener(
-      'click',
-      handleSheetBackdropClick
-    );
-
-    elements.qrSheet.addEventListener(
-      'click',
-      handleSheetBackdropClick
-    );
-  }
-
-  function setAppState(
-    nextState,
-    details
-  ) {
-    state.appState = nextState;
-
-    clearResetTimer();
-
-    Object.values(
-      elements.screens
-    ).forEach(function (screen) {
-      screen.classList.remove(
-        'screen-active'
-      );
+  function bind() {
+    el.btnSearch.addEventListener('click', function () { consultar(el.input.value); });
+    el.input.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') consultar(el.input.value);
     });
 
-    elements.selectionBar.hidden = true;
+    el.btnOpenQr.addEventListener('click', openQrReader);
+    el.btnCloseQr.addEventListener('click', closeQrReader);
 
-    elements.btnSearch.disabled =
-      nextState === APP_STATES.LOADING;
-
-    elements.btnConfirmSave.disabled =
-      nextState === APP_STATES.SAVING;
-
-    if (nextState === APP_STATES.IDLE) {
-      elements.screens.idle.classList.add(
-        'screen-active'
-      );
-
-      limparDadosParticipante();
-      focarEntrada();
-
-      return;
-    }
-
-    if (nextState === APP_STATES.LOADING) {
-      elements.loadingTitle.textContent =
-        'Consultando participante...';
-
-      elements.screens.loading.classList.add(
-        'screen-active'
-      );
-
-      return;
-    }
-
-    if (
-      nextState ===
-        APP_STATES.PARTICIPANT_FOUND ||
-      nextState ===
-        APP_STATES.CONFIRMING
-    ) {
-      elements.screens.participant.classList.add(
-        'screen-active'
-      );
-
-      atualizarBarraSelecao();
-
-      return;
-    }
-
-    if (nextState === APP_STATES.SAVING) {
-      elements.loadingTitle.textContent =
-        'Registrando retirada...';
-
-      elements.screens.loading.classList.add(
-        'screen-active'
-      );
-
-      return;
-    }
-
-    if (
-      nextState === APP_STATES.SUCCESS ||
-      nextState === APP_STATES.NOT_FOUND ||
-      nextState === APP_STATES.ERROR
-    ) {
-      elements.screens.result.classList.add(
-        'screen-active'
-      );
-
-      renderResultado(
-        nextState,
-        details || {}
-      );
-    }
+    el.ticketGrid.addEventListener('click', handleQuantityClick);
+    el.btnCancelEntry.addEventListener('click', reset);
+    el.btnConfirmOpen.addEventListener('click', openConfirmation);
+    el.btnCancelConfirmation.addEventListener('click', closeConfirmation);
+    el.btnConfirmSave.addEventListener('click', salvarEntrada);
+    el.btnNewSearch.addEventListener('click', reset);
   }
 
-  function handleKeypadClick(event) {
-    const button = event.target.closest(
-      '[data-digit]'
-    );
-
-    if (
-      !button ||
-      state.appState !== APP_STATES.IDLE
-    ) {
+  async function consultar(idQr) {
+    const id = window.EntradaAPI.normalizarIdQr(idQr);
+    if (!id) {
+      toast('Informe ou leia o QR Code do convite.');
       return;
     }
 
-    adicionarDigito(
-      button.dataset.digit
-    );
-  }
-
-  function handleInputChange(event) {
-    state.identificadorDigitado =
-      sanitizarEntradaNumerica(
-        event.target.value
-      ).slice(0, 11);
-
-    event.target.value =
-      state.identificadorDigitado;
-
-    atualizarDisplayIdentificador();
-  }
-
-  function handleInputKeydown(event) {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-
-      consultarParticipante();
-    }
-  }
-
-  function handleGlobalKeydown(event) {
-    const tagName =
-      document.activeElement &&
-      document.activeElement.tagName;
-
-    if (
-      [
-        'BUTTON',
-        'TEXTAREA',
-        'SELECT'
-      ].includes(tagName)
-    ) {
-      return;
-    }
-
-    if (
-      state.appState !==
-      APP_STATES.IDLE
-    ) {
-      if (event.key === 'Escape') {
-        closeConfirmation();
-        closeQrReader();
-      }
-
-      return;
-    }
-
-    if (/^\d$/.test(event.key)) {
-      event.preventDefault();
-
-      adicionarDigito(event.key);
-
-      return;
-    }
-
-    if (event.key === 'Backspace') {
-      event.preventDefault();
-
-      apagarUltimoDigito();
-
-      return;
-    }
-
-    if (event.key === 'Enter') {
-      event.preventDefault();
-
-      consultarParticipante();
-    }
-  }
-
-  function adicionarDigito(digito) {
-    if (
-      state.identificadorDigitado.length >=
-      11
-    ) {
-      return;
-    }
-
-    state.identificadorDigitado =
-      sanitizarEntradaNumerica(
-        state.identificadorDigitado +
-          digito
-      ).slice(0, 11);
-
-    elements.input.value =
-      state.identificadorDigitado;
-
-    atualizarDisplayIdentificador();
-    focarEntrada();
-  }
-
-  function apagarUltimoDigito() {
-    state.identificadorDigitado =
-      state.identificadorDigitado.slice(
-        0,
-        -1
-      );
-
-    elements.input.value =
-      state.identificadorDigitado;
-
-    atualizarDisplayIdentificador();
-    focarEntrada();
-  }
-
-  function limparIdentificador() {
-    state.identificadorDigitado = '';
-
-    elements.input.value = '';
-
-    atualizarDisplayIdentificador();
-    focarEntrada();
-  }
-
-  function atualizarDisplayIdentificador() {
-    const digitos =
-      state.identificadorDigitado;
-
-    if (!digitos) {
-      elements.display.textContent =
-        '000000';
-
-      elements.display.dataset.inputType =
-        'VAZIO';
-
-      return;
-    }
-
-    elements.display.textContent =
-      window.RetiradaAPI
-        .formatarIdentificador(
-          digitos
-        );
-
-    elements.display.dataset.inputType =
-      digitos.length <= 4
-        ? 'MATRICULA'
-        : 'CPF';
-  }
-
-  async function consultarParticipante() {
-    if (
-      state.appState ===
-      APP_STATES.LOADING
-    ) {
-      return;
-    }
-
-    let identificacao;
+    showScreen('loading');
 
     try {
-      identificacao =
-        window.RetiradaAPI
-          .identificarTipo(
-            state.identificadorDigitado
-          );
-
+      const response = await window.EntradaAPI.buscarConvite(id);
+      state.convite = normalizarConvite(response, id);
+      state.adultosAgora = 0;
+      state.menoresAgora = 0;
+      renderConvite();
+      showScreen('participant');
     } catch (error) {
-      showToast(
-        mapErrorMessage(error),
-        'error'
-      );
-
-      focarEntrada();
-
-      return;
-    }
-
-    state.identificacaoAtual =
-      identificacao;
-
-    setAppState(
-      APP_STATES.LOADING
-    );
-
-    try {
-      const response =
-        await window.RetiradaAPI
-          .buscarParticipante({
-            tipoParticipante:
-              identificacao
-                .tipoParticipante,
-
-            identificador:
-              identificacao
-                .identificador
-          });
-
-      state.participante =
-        response.data;
-
-      state.quantidades.clear();
-
-      renderParticipant(
-        state.participante
-      );
-
-      setAppState(
-        APP_STATES.PARTICIPANT_FOUND
-      );
-
-    } catch (error) {
-      console.error(
-        'Erro ao buscar participante:',
-        error
-      );
-
-      if (
-        error.code ===
-        'PARTICIPANTE_NAO_ENCONTRADO'
-      ) {
-        const tipo =
-          identificacao
-            .tipoParticipante === 'P'
-            ? 'CPF'
-            : 'Matrícula';
-
-        setAppState(
-          APP_STATES.NOT_FOUND,
-          {
-            title:
-              tipo +
-              ' não encontrado',
-
-            message:
-              'Confira o número informado e tente novamente.'
-          }
-        );
-
-        return;
-      }
-
-      setAppState(
-        APP_STATES.ERROR,
-        {
-          title:
-            'Não foi possível consultar',
-
-          message:
-            mapErrorMessage(error)
-        }
-      );
+      showResult(false, error.message || 'Convite não localizado.');
     }
   }
 
-  function renderParticipant(
-    participante
-  ) {
-    const isPatient =
-      participante
-        .tipoParticipante === 'P';
+  function normalizarConvite(data, fallbackId) {
+    const origem = data.convite || data.participante || data;
+    const adultosAutorizados = numberValue(origem.adultosAutorizados, origem.adultos_autorizados, origem.quantidadeAdultos, origem.adultos, 0);
+    const menoresAutorizados = numberValue(origem.menoresAutorizados, origem.menores_autorizados, origem.quantidadeMenores, origem.menores, 0);
+    const adultosEntraram = numberValue(origem.adultosEntraram, origem.adultos_entraram, origem.adultosUtilizados, 0);
+    const menoresEntraram = numberValue(origem.menoresEntraram, origem.menores_entraram, origem.menoresUtilizados, 0);
 
-    const lines = [];
+    return {
+      idQr: String(origem.idQr || origem.ID_QR || fallbackId || ''),
+      nome: textValue(origem.nome, origem.nomeCompleto, origem.NOME, 'Convite'),
+      telefone: textValue(origem.telefone, origem.TELEFONE, '—'),
+      tipoConvite: textValue(origem.tipoConvite, origem.tipo_convite, origem.TIPO_CONVITE, '—'),
+      usuarioParticipante: textValue(origem.usuarioParticipante, origem.nomeUsuarioParticipante, origem.USUARIO_PARTICIPANTE, '—'),
+      autoridade: boolValue(origem.autoridade, origem.AUTORIDADE),
+      obsAutoridade: textValue(origem.obsAutoridade, origem.observacaoAutoridade, origem.OBS_AUTORIDADE, ''),
+      necessitaApoio: boolValue(origem.necessitaApoio, origem.NECESSITA_APOIO),
+      tipoApoio: textValue(origem.tipoApoio, origem.TIPO_APOIO, ''),
+      adultosAutorizados: adultosAutorizados,
+      menoresAutorizados: menoresAutorizados,
+      adultosEntraram: adultosEntraram,
+      menoresEntraram: menoresEntraram,
+      adultosRestantes: Math.max(0, numberValue(origem.adultosRestantes, origem.adultos_restantes, adultosAutorizados - adultosEntraram)),
+      menoresRestantes: Math.max(0, numberValue(origem.menoresRestantes, origem.menores_restantes, menoresAutorizados - menoresEntraram))
+    };
+  }
 
-    elements.cardEyebrow.textContent =
-      isPatient
-        ? 'Paciente'
-        : 'Funcionário';
+  function renderConvite() {
+    const c = state.convite;
+    el.name.textContent = c.nome;
+    el.type.textContent = c.tipoConvite;
+    el.phone.textContent = c.telefone;
+    el.user.textContent = c.usuarioParticipante || '—';
 
-    elements.participantName.textContent =
-      participante.nome ||
-      'Participante sem nome';
+    el.authorityAlert.hidden = !c.autoridade;
+    el.authorityNote.textContent = c.obsAutoridade || 'Direcionar para a área reservada.';
 
-    if (isPatient) {
-      lines.push(
-        'CPF ' +
-          (
-            participante
-              .cpfMascarado ||
-            participante
-              .identificadorMascarado ||
-            '***.***.***-**'
-          )
-      );
+    el.supportAlert.hidden = !c.necessitaApoio;
+    el.supportNote.textContent = c.tipoApoio || 'Apoio informado no cadastro.';
 
-      if (
-        participante
-          .quantidadeAcompanhantes === 1
-      ) {
-        lines.push(
-          '1 acompanhante'
-        );
+    el.adultAuthorized.textContent = c.adultosAutorizados;
+    el.adultUsed.textContent = c.adultosEntraram;
+    el.adultRemaining.textContent = c.adultosRestantes;
 
-      } else if (
-        participante
-          .quantidadeAcompanhantes > 1
-      ) {
-        lines.push(
-          participante
-            .quantidadeAcompanhantes +
-            ' acompanhantes'
-        );
+    el.minorAuthorized.textContent = c.menoresAutorizados;
+    el.minorUsed.textContent = c.menoresEntraram;
+    el.minorRemaining.textContent = c.menoresRestantes;
 
-      } else {
-        lines.push(
-          'Sem acompanhante'
-        );
-      }
-
-      lines.push(
-        participante.totalPessoas +
-          (
-            participante.totalPessoas === 1
-              ? ' pessoa autorizada'
-              : ' pessoas autorizadas'
-          )
-      );
-
+    const totalRestante = c.adultosRestantes + c.menoresRestantes;
+    if (totalRestante <= 0) {
+      el.statusBadge.textContent = 'COMPLETO';
+      el.statusBadge.dataset.status = 'complete';
+    } else if (c.adultosEntraram + c.menoresEntraram > 0) {
+      el.statusBadge.textContent = 'PARCIAL';
+      el.statusBadge.dataset.status = 'partial';
     } else {
-      lines.push(
-        'Matrícula ' +
-          (
-            participante.matricula ||
-            participante
-              .identificadorMascarado ||
-            ''
-          )
-      );
+      el.statusBadge.textContent = 'NÃO UTILIZADO';
+      el.statusBadge.dataset.status = 'available';
     }
 
-    if (participante.setor) {
-      lines.push(
-        'Setor: ' +
-          participante.setor
-      );
-    }
-
-    elements.participantMatricula.textContent =
-      lines.join(' • ');
-
-    renderItems(
-      participante.itens || []
-    );
+    updateQuantities();
   }
 
-  function renderItems(itens) {
-    elements.itemsContainer
-      .replaceChildren();
+  function handleQuantityClick(event) {
+    const button = event.target.closest('[data-action][data-type]');
+    if (!button || !state.convite) return;
 
-    const visiveis =
-      itens.filter(function (item) {
-        return (
-          item.ativo !== false &&
-          !item.bloqueado &&
-          item.status !==
-            ITEM_STATUS.INACTIVE
-        );
-      });
+    const type = button.dataset.type;
+    const delta = button.dataset.action === 'plus' ? 1 : -1;
 
-    const disponiveis =
-      visiveis.filter(function (item) {
-        return (
-          Number(
-            item.saldoDisponivel
-          ) > 0
-        );
-      });
-
-    const retirados =
-      visiveis.filter(function (item) {
-        return (
-          Number(
-            item.saldoDisponivel
-          ) <= 0
-        );
-      });
-
-    elements.itemsContainer.appendChild(
-      criarSecaoItens(
-        'Disponíveis para retirada',
-        disponiveis,
-        'Nenhum alimento disponível para retirada.',
-        true
-      )
-    );
-
-    elements.itemsContainer.appendChild(
-      criarSecaoItens(
-        'Já retirados',
-        retirados,
-        'Nenhum alimento foi retirado completamente ainda.',
-        false
-      )
-    );
-  }
-
-  function criarSecaoItens(
-    titulo,
-    itens,
-    textoVazio,
-    permitirQuantidade
-  ) {
-    const section =
-      document.createElement(
-        'section'
-      );
-
-    section.className =
-      'items-section';
-
-    const heading =
-      document.createElement(
-        'h3'
-      );
-
-    heading.textContent =
-      titulo;
-
-    section.appendChild(
-      heading
-    );
-
-    if (!itens.length) {
-      const empty =
-        document.createElement(
-          'p'
-        );
-
-      empty.className =
-        'empty-section';
-
-      empty.textContent =
-        textoVazio;
-
-      section.appendChild(
-        empty
-      );
-
-      return section;
-    }
-
-    const grid =
-      document.createElement(
-        'div'
-      );
-
-    grid.className =
-      'items-grid';
-
-    itens.forEach(function (item) {
-      grid.appendChild(
-        criarItemCard(
-          item,
-          permitirQuantidade
-        )
-      );
-    });
-
-    section.appendChild(
-      grid
-    );
-
-    return section;
-  }
-
-  function criarItemCard(
-    item,
-    permitirQuantidade
-  ) {
-    const quantidadeSelecionada =
-      state.quantidades.get(
-        item.id
-      ) || 0;
-
-    const card =
-      document.createElement(
-        'article'
-      );
-
-    card.className =
-      'item-card';
-
-    card.dataset.itemId =
-      item.id;
-
-    card.dataset.status =
-      item.status ||
-      ITEM_STATUS.AVAILABLE;
-
-    card.dataset.selected =
-      String(
-        quantidadeSelecionada > 0
-      );
-
-    const icon =
-      document.createElement(
-        'span'
-      );
-
-    icon.className =
-      'item-icon item-icon--' +
-      item.id;
-
-    icon.innerHTML =
-      ICONS[item.id] ||
-      ICONS.food;
-
-    const text =
-      document.createElement(
-        'span'
-      );
-
-    text.className =
-      'item-copy';
-
-    const name =
-      document.createElement(
-        'span'
-      );
-
-    name.className =
-      'item-name';
-
-    name.textContent =
-      item.nome;
-
-    const status =
-      document.createElement(
-        'span'
-      );
-
-    status.className =
-      'item-status';
-
-    status.textContent =
-      criarTextoStatusItem(
-        item
-      );
-
-    text.append(
-      name,
-      status
-    );
-
-    if (permitirQuantidade) {
-      card.append(
-        icon,
-        text,
-        criarControleQuantidade(
-          item,
-          quantidadeSelecionada
-        )
-      );
-
+    if (type === 'adultos') {
+      state.adultosAgora = clamp(state.adultosAgora + delta, 0, state.convite.adultosRestantes);
     } else {
-      const indicator =
-        document.createElement(
-          'span'
-        );
-
-      indicator.className =
-        'status-indicator';
-
-      indicator.innerHTML =
-        ICONS.check;
-
-      card.append(
-        icon,
-        text,
-        indicator
-      );
+      state.menoresAgora = clamp(state.menoresAgora + delta, 0, state.convite.menoresRestantes);
     }
 
-    return card;
+    updateQuantities();
   }
 
-  function criarTextoStatusItem(item) {
-    const direito =
-      Number(
-        item.direitoTotal
-      ) || 0;
-
-    const retirado =
-      Number(
-        item.quantidadeRetirada
-      ) || 0;
-
-    const saldo =
-      Number(
-        item.saldoDisponivel
-      ) || 0;
-
-    if (saldo <= 0) {
-      return (
-        'Retirado: ' +
-        retirado +
-        ' de ' +
-        direito
-      );
-    }
-
-    if (retirado > 0) {
-      return (
-        'Disponíveis: ' +
-        saldo +
-        ' de ' +
-        direito +
-        ' • Já retirados: ' +
-        retirado
-      );
-    }
-
-    return (
-      'Disponíveis: ' +
-      saldo +
-      ' de ' +
-      direito
-    );
-  }
-
-  function criarControleQuantidade(
-    item,
-    quantidadeSelecionada
-  ) {
-    const control =
-      document.createElement(
-        'span'
-      );
-
-    control.className =
-      'quantity-control';
-
-    control.setAttribute(
-      'role',
-      'group'
-    );
-
-    control.setAttribute(
-      'aria-label',
-      'Quantidade de ' +
-        item.nome
-    );
-
-    const minusButton =
-      document.createElement(
-        'button'
-      );
-
-    minusButton.type =
-      'button';
-
-    minusButton.className =
-      'quantity-button quantity-button-minus';
-
-    minusButton.dataset.quantityAction =
-      'decrement';
-
-    minusButton.dataset.itemId =
-      item.id;
-
-    minusButton.disabled =
-      quantidadeSelecionada <= 0;
-
-    minusButton.setAttribute(
-      'aria-label',
-      'Diminuir ' +
-        item.nome
-    );
-
-    minusButton.innerHTML =
-      ICONS.minus;
-
-    const value =
-      document.createElement(
-        'span'
-      );
-
-    value.className =
-      'quantity-value';
-
-    value.textContent =
-      String(
-        quantidadeSelecionada
-      );
-
-    value.setAttribute(
-      'aria-live',
-      'polite'
-    );
-
-    const plusButton =
-      document.createElement(
-        'button'
-      );
-
-    plusButton.type =
-      'button';
-
-    plusButton.className =
-      'quantity-button quantity-button-plus';
-
-    plusButton.dataset.quantityAction =
-      'increment';
-
-    plusButton.dataset.itemId =
-      item.id;
-
-    plusButton.disabled =
-      quantidadeSelecionada >=
-      Number(
-        item.saldoDisponivel || 0
-      );
-
-    plusButton.setAttribute(
-      'aria-label',
-      'Adicionar ' +
-        item.nome
-    );
-
-    plusButton.innerHTML =
-      ICONS.plus;
-
-    control.append(
-      minusButton,
-      value,
-      plusButton
-    );
-
-    return control;
-  }
-
-  function handleItemsClick(event) {
-    const button =
-      event.target.closest(
-        '[data-quantity-action]'
-      );
-
-    if (
-      !button ||
-      !state.participante
-    ) {
-      return;
-    }
-
-    const itemId =
-      button.dataset.itemId;
-
-    const action =
-      button.dataset
-        .quantityAction;
-
-    const item =
-      encontrarItemPorId(
-        itemId
-      );
-
-    if (!item) {
-      return;
-    }
-
-    const atual =
-      state.quantidades.get(
-        itemId
-      ) || 0;
-
-    const limite =
-      Number(
-        item.saldoDisponivel
-      ) || 0;
-
-    let proxima =
-      atual;
-
-    if (
-      action === 'increment'
-    ) {
-      proxima = Math.min(
-        limite,
-        atual + 1
-      );
-
-    } else if (
-      action === 'decrement'
-    ) {
-      proxima = Math.max(
-        0,
-        atual - 1
-      );
-    }
-
-    if (proxima > 0) {
-      state.quantidades.set(
-        itemId,
-        proxima
-      );
-
-    } else {
-      state.quantidades.delete(
-        itemId
-      );
-    }
-
-    renderItems(
-      state.participante.itens || []
-    );
-
-    atualizarBarraSelecao();
-  }
-
-  function encontrarItemPorId(itemId) {
-    const itens =
-      state.participante &&
-      Array.isArray(
-        state.participante.itens
-      )
-        ? state.participante.itens
-        : [];
-
-    return (
-      itens.find(function (item) {
-        return item.id === itemId;
-      }) || null
-    );
-  }
-
-  function getSelectedItems() {
-    const selecionados = [];
-
-    state.quantidades.forEach(
-      function (
-        quantidade,
-        itemId
-      ) {
-        const item =
-          encontrarItemPorId(
-            itemId
-          );
-
-        if (
-          item &&
-          quantidade > 0
-        ) {
-          selecionados.push({
-            id: item.id,
-            nome: item.nome,
-            quantidade:
-              quantidade
-          });
-        }
-      }
-    );
-
-    return selecionados;
-  }
-
-  function atualizarBarraSelecao() {
-    const selecionados =
-      getSelectedItems();
-
-    const totalItens =
-      selecionados.length;
-
-    const totalUnidades =
-      selecionados.reduce(
-        function (
-          sum,
-          item
-        ) {
-          return (
-            sum +
-            item.quantidade
-          );
-        },
-        0
-      );
-
-    elements.selectionBar.hidden =
-      totalItens === 0 ||
-      state.appState !==
-        APP_STATES.PARTICIPANT_FOUND;
-
-    if (totalItens === 0) {
-      elements.selectionCount.textContent =
-        '0 itens selecionados';
-
-      return;
-    }
-
-    const textoItens =
-      totalItens === 1
-        ? '1 item'
-        : totalItens +
-          ' itens';
-
-    const textoUnidades =
-      totalUnidades === 1
-        ? '1 unidade'
-        : totalUnidades +
-          ' unidades';
-
-    elements.selectionCount.textContent =
-      textoUnidades +
-      ' em ' +
-      textoItens;
+  function updateQuantities() {
+    el.adultNow.textContent = state.adultosAgora;
+    el.minorNow.textContent = state.menoresAgora;
+    el.btnConfirmOpen.disabled = state.adultosAgora + state.menoresAgora <= 0;
   }
 
   function openConfirmation() {
-    const selecionados =
-      getSelectedItems();
+    if (!state.convite || state.adultosAgora + state.menoresAgora <= 0) return;
 
-    if (
-      !state.participante ||
-      selecionados.length === 0
-    ) {
-      return;
-    }
+    el.confirmationParticipant.textContent = state.convite.nome;
+    el.confirmationList.innerHTML = '';
 
-    state.lastFocusedElement =
-      document.activeElement;
+    if (state.adultosAgora > 0) appendConfirmation('Adultos', state.adultosAgora);
+    if (state.menoresAgora > 0) appendConfirmation('Menores', state.menoresAgora);
 
-    setAppState(
-      APP_STATES.CONFIRMING
-    );
+    el.confirmationSheet.hidden = false;
+  }
 
-    elements.confirmationTitle.textContent =
-      'Confirmar retirada?';
-
-    elements.confirmationParticipant.textContent =
-      state.participante.nome +
-      ' • ' +
-      state.participante
-        .identificadorMascarado;
-
-    elements.confirmationList
-      .replaceChildren();
-
-    selecionados.forEach(
-      function (item) {
-        const li =
-          document.createElement(
-            'li'
-          );
-
-        li.textContent =
-          item.quantidade +
-          ' × ' +
-          item.nome;
-
-        elements.confirmationList
-          .appendChild(li);
-      }
-    );
-
-    elements.confirmationSheet.hidden =
-      false;
-
-    elements.btnConfirmSave.focus();
+  function appendConfirmation(label, value) {
+    const li = document.createElement('li');
+    li.textContent = label + ': ' + value;
+    el.confirmationList.appendChild(li);
   }
 
   function closeConfirmation() {
-    if (
-      elements.confirmationSheet.hidden
-    ) {
-      return;
-    }
-
-    elements.confirmationSheet.hidden =
-      true;
-
-    if (
-      state.appState ===
-      APP_STATES.CONFIRMING
-    ) {
-      setAppState(
-        APP_STATES.PARTICIPANT_FOUND
-      );
-    }
-
-    if (
-      state.lastFocusedElement &&
-      typeof state.lastFocusedElement
-        .focus === 'function'
-    ) {
-      state.lastFocusedElement.focus();
-    }
+    el.confirmationSheet.hidden = true;
   }
 
-  async function confirmarRetirada() {
-    const itens =
-      getSelectedItems();
+  async function salvarEntrada() {
+    if (!state.convite) return;
 
-    if (
-      !state.participante ||
-      !state.identificacaoAtual ||
-      itens.length === 0 ||
-      state.appState ===
-        APP_STATES.SAVING
-    ) {
-      return;
-    }
-
-    elements.confirmationSheet.hidden =
-      true;
-
-    setAppState(
-      APP_STATES.SAVING
-    );
+    el.btnConfirmSave.disabled = true;
 
     try {
-      const response =
-        await window.RetiradaAPI
-          .registrarRetiradas({
-            tipoParticipante:
-              state.identificacaoAtual
-                .tipoParticipante,
+      const result = await window.EntradaAPI.registrarEntrada({
+        idQr: state.convite.idQr,
+        adultos: state.adultosAgora,
+        menores: state.menoresAgora
+      });
 
-            identificador:
-              state.identificacaoAtual
-                .identificador,
-
-            itens:
-              itens.map(
-                function (item) {
-                  return {
-                    id: item.id,
-                    quantidade:
-                      item.quantidade
-                  };
-                }
-              )
-          });
-
-      const data =
-        response.data || {};
-
-      const registrados =
-        Array.isArray(
-          data.itensRegistrados
-        )
-          ? data.itensRegistrados
-          : [];
-
-      setAppState(
-        APP_STATES.SUCCESS,
-        {
-          title:
-            registrados.length
-              ? 'Retirada registrada'
-              : 'Nenhum item registrado',
-
-          message:
-            registrados.length
-              ? 'As quantidades foram registradas com sucesso.'
-              : 'Nenhuma quantidade pôde ser registrada.',
-
-          data: data
-        }
-      );
-
-      scheduleAutoReset();
-
+      closeConfirmation();
+      const atualizado = result.convite || result;
+      showResult(true, 'Entrada registrada com sucesso.', atualizado);
     } catch (error) {
-      console.error(
-        'Erro ao registrar retirada:',
-        error
-      );
-
-      setAppState(
-        APP_STATES.ERROR,
-        {
-          title:
-            'Não foi possível registrar',
-
-          message:
-            mapErrorMessage(error),
-
-          data:
-            error.details &&
-            error.details.data
-        }
-      );
+      closeConfirmation();
+      showResult(false, error.message || 'Não foi possível registrar a entrada.');
+    } finally {
+      el.btnConfirmSave.disabled = false;
     }
   }
 
-  function renderResultado(
-    type,
-    details
-  ) {
-    const isSuccess =
-      type === APP_STATES.SUCCESS;
+  function showResult(success, message, details) {
+    el.resultCard.dataset.result = success ? 'success' : 'error';
+    el.resultIcon.textContent = success ? '✓' : '!';
+    el.resultTitle.textContent = success ? 'Entrada registrada' : 'Não foi possível concluir';
+    el.resultMessage.textContent = message;
+    el.resultDetails.innerHTML = '';
 
-    const isNotFound =
-      type === APP_STATES.NOT_FOUND;
-
-    elements.resultCard.className =
-      'result-card ' +
-      (
-        isSuccess
-          ? 'success'
-          : 'error'
-      );
-
-    elements.resultIcon.innerHTML =
-      isSuccess
-        ? ICONS.check
-        : ICONS.alert;
-
-    elements.resultTitle.textContent =
-      details.title ||
-      (
-        isSuccess
-          ? 'Operação concluída'
-          : 'Algo deu errado'
-      );
-
-    elements.resultMessage.textContent =
-      details.message || '';
-
-    elements.resultDetails
-      .replaceChildren();
-
-    if (details.data) {
-      renderResultadoDetalhes(
-        details.data
-      );
+    if (success && details) {
+      const adultosRestantes = numberValue(details.adultosRestantes, details.adultos_restantes, NaN);
+      const menoresRestantes = numberValue(details.menoresRestantes, details.menores_restantes, NaN);
+      if (Number.isFinite(adultosRestantes) || Number.isFinite(menoresRestantes)) {
+        el.resultDetails.textContent = 'Saldo restante — Adultos: ' + (Number.isFinite(adultosRestantes) ? adultosRestantes : '—') + ' | Menores: ' + (Number.isFinite(menoresRestantes) ? menoresRestantes : '—');
+      }
     }
 
-    elements.btnNewSearch.textContent =
-      isNotFound
-        ? 'Tentar novamente'
-        : 'Nova consulta';
+    showScreen('result');
   }
 
-  function renderResultadoDetalhes(data) {
-    const registrados =
-      Array.isArray(
-        data.itensRegistrados
-      )
-        ? data.itensRegistrados.map(
-            function (item) {
-              const nome =
-                item.nome ||
-                item.item ||
-                item.id;
-
-              const quantidade =
-                Number(
-                  item.quantidade
-                ) || 1;
-
-              const saldo =
-                Number(
-                  item.saldoAposRetirada
-                );
-
-              const complemento =
-                Number.isFinite(saldo)
-                  ? ' • Saldo: ' +
-                    saldo
-                  : '';
-
-              return (
-                quantidade +
-                ' × ' +
-                nome +
-                complemento
-              );
-            }
-          )
-        : [];
-
-    if (registrados.length) {
-      elements.resultDetails
-        .appendChild(
-          criarGrupoDetalhe(
-            'Itens registrados',
-            registrados
-          )
-        );
-    }
-
-    const ignorados =
-      Array.isArray(
-        data.itensIgnorados
-      )
-        ? data.itensIgnorados.map(
-            function (item) {
-              if (
-                typeof item ===
-                'string'
-              ) {
-                return item;
-              }
-
-              const nome =
-                item.nome ||
-                item.item ||
-                item.id;
-
-              return (
-                nome +
-                ': ' +
-                traduzirMotivoIgnorado(
-                  item.motivo,
-                  item.saldoDisponivel
-                )
-              );
-            }
-          )
-        : [];
-
-    if (ignorados.length) {
-      elements.resultDetails
-        .appendChild(
-          criarGrupoDetalhe(
-            'Itens não registrados',
-            ignorados
-          )
-        );
-    }
-  }
-
-  function criarGrupoDetalhe(
-    titulo,
-    itens
-  ) {
-    const group =
-      document.createElement(
-        'div'
-      );
-
-    group.className =
-      'detail-group';
-
-    const strong =
-      document.createElement(
-        'strong'
-      );
-
-    strong.textContent =
-      titulo;
-
-    const list =
-      document.createElement(
-        'ul'
-      );
-
-    itens.forEach(function (item) {
-      const li =
-        document.createElement(
-          'li'
-        );
-
-      li.textContent =
-        item;
-
-      list.appendChild(li);
+  function showScreen(name) {
+    Object.keys(el.screens).forEach(function (key) {
+      el.screens[key].classList.toggle('screen-active', key === name);
     });
-
-    group.append(
-      strong,
-      list
-    );
-
-    return group;
   }
 
-  function traduzirMotivoIgnorado(
-    motivo,
-    saldoDisponivel
-  ) {
-    const mensagens = {
-      ITEM_NAO_CONFIGURADO:
-        'item não configurado',
-
-      ITEM_INATIVO:
-        'item inativo',
-
-      COLUNA_NAO_ENCONTRADA:
-        'coluna não encontrada',
-
-      SEM_DIREITO:
-        'participante sem direito',
-
-      SALDO_ESGOTADO:
-        'saldo esgotado',
-
-      QUANTIDADE_MAIOR_QUE_SALDO:
-        'quantidade superior ao saldo disponível'
-    };
-
-    const mensagem =
-      mensagens[motivo] ||
-      motivo ||
-      'não registrado';
-
-    if (
-      motivo ===
-        'QUANTIDADE_MAIOR_QUE_SALDO' &&
-      Number.isFinite(
-        Number(
-          saldoDisponivel
-        )
-      )
-    ) {
-      return (
-        mensagem +
-        ' (' +
-        saldoDisponivel +
-        ')'
-      );
-    }
-
-    return mensagem;
-  }
-
-  function resetApplication() {
-    clearResetTimer();
+  function reset() {
+    state.convite = null;
+    state.adultosAgora = 0;
+    state.menoresAgora = 0;
+    el.input.value = '';
     closeConfirmation();
-    closeQrReader();
-
-    state.identificadorDigitado = '';
-    state.identificacaoAtual = null;
-    state.participante = null;
-
-    state.quantidades.clear();
-
-    elements.input.value = '';
-
-    atualizarDisplayIdentificador();
-
-    setAppState(
-      APP_STATES.IDLE
-    );
+    showScreen('idle');
+    setTimeout(function () { el.input.focus(); }, 50);
   }
 
   async function openQrReader() {
-    state.lastFocusedElement =
-      document.activeElement;
-
-    elements.qrSheet.hidden =
-      false;
-
-    elements.qrMessage.textContent =
-      'Preparando câmera...';
+    el.qrSheet.hidden = false;
+    el.qrMessage.textContent = 'Preparando câmera...';
 
     try {
-      await carregarQrLibrary();
-
-      if (!state.qrScanner) {
-        state.qrScanner =
-          new window.Html5Qrcode(
-            'qr-reader'
-          );
-      }
-
+      await loadQrLibrary();
+      if (!state.qrScanner) state.qrScanner = new window.Html5Qrcode('qr-reader');
       state.qrReading = false;
 
       await state.qrScanner.start(
-        {
-          facingMode:
-            'environment'
-        },
-
-        {
-          fps: 8,
-
-          qrbox: {
-            width: 220,
-            height: 220
-          }
-        },
-
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 240, height: 240 } },
         handleQrSuccess,
-
         function () {}
       );
 
-      elements.qrMessage.textContent =
-        'Aponte a câmera para o QR Code da matrícula ou CPF.';
-
+      el.qrMessage.textContent = 'Aponte a câmera para o QR Code do convite.';
     } catch (error) {
-      console.error(
-        'Erro ao abrir leitor QR:',
-        error
-      );
-
-      elements.qrMessage.textContent =
-        'Não foi possível abrir a câmera. Use a digitação manual.';
+      el.qrMessage.textContent = 'Não foi possível acessar a câmera. Você pode informar o ID manualmente.';
     }
+  }
+
+  async function handleQrSuccess(decodedText) {
+    if (state.qrReading) return;
+    state.qrReading = true;
+    const id = window.EntradaAPI.normalizarIdQr(decodedText);
+    await closeQrReader();
+    if (!id) {
+      toast('QR Code inválido.');
+      return;
+    }
+    el.input.value = id;
+    consultar(id);
   }
 
   async function closeQrReader() {
-    if (
-      state.qrScanner &&
-      state.qrScanner.isScanning
-    ) {
-      try {
-        await state.qrScanner.stop();
-
-      } catch (error) {
-        console.warn(
-          'Erro ao fechar leitor QR:',
-          error
-        );
-      }
+    if (state.qrScanner && state.qrScanner.isScanning) {
+      try { await state.qrScanner.stop(); } catch (error) {}
     }
+    el.qrSheet.hidden = true;
+    state.qrReading = false;
+  }
 
-    elements.qrSheet.hidden =
-      true;
+  function loadQrLibrary() {
+    if (window.Html5Qrcode) return Promise.resolve();
 
-    elements.qrMessage.textContent =
-      '';
+    return new Promise(function (resolve, reject) {
+      const script = document.createElement('script');
+      script.src = (window.APP_CONFIG || {}).QR_LIBRARY_URL || 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
 
-    if (
-      state.lastFocusedElement &&
-      typeof state.lastFocusedElement
-        .focus === 'function'
-    ) {
-      state.lastFocusedElement.focus();
+  function toast(message) {
+    const node = document.createElement('div');
+    node.className = 'toast';
+    node.textContent = message;
+    el.toastRegion.appendChild(node);
+    setTimeout(function () { node.remove(); }, 3500);
+  }
+
+  function numberValue() {
+    for (let i = 0; i < arguments.length; i += 1) {
+      const value = Number(arguments[i]);
+      if (Number.isFinite(value)) return Math.max(0, Math.floor(value));
     }
+    return 0;
   }
 
-  async function handleQrSuccess(
-    decodedText
-  ) {
-    if (state.qrReading) {
-      return;
+  function textValue() {
+    for (let i = 0; i < arguments.length; i += 1) {
+      const value = arguments[i];
+      if (value !== null && value !== undefined && String(value).trim() !== '') return String(value).trim();
     }
+    return '';
+  }
 
-    state.qrReading = true;
-
-    const identificador =
-      extrairIdentificadorDoQr(
-        decodedText
-      );
-
-    await closeQrReader();
-
-    if (!identificador) {
-      showToast(
-        'QR Code sem matrícula ou CPF reconhecido.',
-        'error'
-      );
-
-      return;
+  function boolValue() {
+    for (let i = 0; i < arguments.length; i += 1) {
+      const value = arguments[i];
+      if (typeof value === 'boolean') return value;
+      const text = String(value == null ? '' : value).trim().toLowerCase();
+      if (['sim', 's', 'true', '1', 'yes'].includes(text)) return true;
+      if (['não', 'nao', 'n', 'false', '0', 'no'].includes(text)) return false;
     }
-
-    state.identificadorDigitado =
-      identificador;
-
-    elements.input.value =
-      identificador;
-
-    atualizarDisplayIdentificador();
-    consultarParticipante();
+    return false;
   }
 
-  function carregarQrLibrary() {
-    if (window.Html5Qrcode) {
-      return Promise.resolve();
-    }
-
-    return new Promise(
-      function (
-        resolve,
-        reject
-      ) {
-        const script =
-          document.createElement(
-            'script'
-          );
-
-        script.src =
-          (
-            window.APP_CONFIG &&
-            window.APP_CONFIG
-              .QR_LIBRARY_URL
-          ) || '';
-
-        script.async = true;
-
-        script.onload =
-          resolve;
-
-        script.onerror =
-          function () {
-            reject(
-              window.RetiradaAPI
-                .criarErroAplicacao(
-                  'QR_BIBLIOTECA_ERRO',
-                  'Falha ao carregar leitor QR.'
-                )
-            );
-          };
-
-        document.head.appendChild(
-          script
-        );
-      }
-    );
-  }
-
-  function extrairIdentificadorDoQr(
-    texto
-  ) {
-    const valor =
-      String(
-        texto || ''
-      ).trim();
-
-    try {
-      const url =
-        new URL(valor);
-
-      const param =
-        url.searchParams.get(
-          'cpf'
-        ) ||
-        url.searchParams.get(
-          'matricula'
-        ) ||
-        url.searchParams.get(
-          'mat'
-        ) ||
-        url.searchParams.get(
-          'identificador'
-        ) ||
-        url.searchParams.get(
-          'codigo'
-        );
-
-      if (param) {
-        return sanitizarEntradaNumerica(
-          param
-        ).slice(0, 11);
-      }
-
-    } catch (error) {
-      /*
-       * QR Codes simples podem conter
-       * somente os números.
-       */
-    }
-
-    return sanitizarEntradaNumerica(
-      valor
-    ).slice(0, 11);
-  }
-
-  function handleSheetBackdropClick(
-    event
-  ) {
-    if (
-      event.target ===
-      elements.confirmationSheet
-    ) {
-      closeConfirmation();
-    }
-
-    if (
-      event.target ===
-      elements.qrSheet
-    ) {
-      closeQrReader();
-    }
-  }
-
-  function showToast(
-    message,
-    type
-  ) {
-    const toast =
-      document.createElement(
-        'div'
-      );
-
-    toast.className =
-      (
-        'toast ' +
-        (type || '')
-      ).trim();
-
-    toast.textContent =
-      message;
-
-    elements.toastRegion.appendChild(
-      toast
-    );
-
-    window.setTimeout(
-      function () {
-        toast.remove();
-      },
-      4200
-    );
-  }
-
-  function mapErrorMessage(error) {
-    const messages = {
-      CONFIG_API_URL_AUSENTE:
-        'Configure a URL do Web App em js/config.js.',
-
-      IDENTIFICADOR_VAZIO:
-        'Digite a matrícula ou o CPF.',
-
-      IDENTIFICADOR_INVALIDO:
-        'Digite uma matrícula de até 4 dígitos ou um CPF com 11 dígitos.',
-
-      MATRICULA_INVALIDA:
-        'A matrícula deve possuir até 4 dígitos.',
-
-      CPF_INVALIDO:
-        'O CPF informado é inválido.',
-
-      TIMEOUT:
-        'A planilha demorou para responder. Tente novamente.',
-
-      ERRO_REDE:
-        'Verifique a internet e tente novamente.',
-
-      ERRO_HTTP:
-        'O servidor não respondeu corretamente.',
-
-      RESPOSTA_INVALIDA:
-        'A resposta do servidor não pôde ser lida.',
-
-      PARTICIPANTE_NAO_ENCONTRADO:
-        'Participante não encontrado.',
-
-      CHAVE_BUSCA_DUPLICADA:
-        'Existe mais de um cadastro com este identificador.',
-
-      QUANTIDADE_MAIOR_QUE_SALDO:
-        'A quantidade escolhida supera o saldo disponível.',
-
-      SALDO_ESGOTADO:
-        'O saldo deste item já foi utilizado.',
-
-      ERRO_LOCK:
-        'Outro atendimento está gravando agora. Tente novamente em instantes.',
-
-      ERRO_INTERNO:
-        'Ocorreu um erro interno na planilha.'
-    };
-
-    return (
-      messages[
-        error && error.code
-      ] ||
-      (
-        error &&
-        error.message
-      ) ||
-      'Não foi possível concluir a operação.'
-    );
-  }
-
-  function sanitizarEntradaNumerica(
-    valor
-  ) {
-    return String(
-      valor || ''
-    ).replace(
-      /\D+/g,
-      ''
-    );
-  }
-
-  function limparDadosParticipante() {
-    elements.cardEyebrow.textContent =
-      'Participante';
-
-    elements.participantName.textContent =
-      '';
-
-    elements.participantMatricula.textContent =
-      '';
-
-    elements.itemsContainer
-      .replaceChildren();
-
-    elements.resultDetails
-      .replaceChildren();
-  }
-
-  function focarEntrada() {
-    const touchInterface =
-      window.matchMedia(
-        '(pointer: coarse)'
-      ).matches ||
-      window.matchMedia(
-        '(hover: none)'
-      ).matches;
-
-    if (
-      touchInterface ||
-      elements.input.readOnly
-    ) {
-      return;
-    }
-
-    window.setTimeout(
-      function () {
-        elements.input.focus();
-      },
-      0
-    );
-  }
-
-  function scheduleAutoReset() {
-    const timeoutMs =
-      Number(
-        window.APP_CONFIG &&
-        window.APP_CONFIG
-          .AUTO_RESET_SUCCESS_MS
-      ) || 4500;
-
-    state.resetTimer =
-      window.setTimeout(
-        resetApplication,
-        timeoutMs
-      );
-  }
-
-  function clearResetTimer() {
-    if (state.resetTimer) {
-      window.clearTimeout(
-        state.resetTimer
-      );
-
-      state.resetTimer =
-        null;
-    }
-  }
-
-  function registrarServiceWorker() {
-    if (
-      'serviceWorker' in navigator &&
-      window.location.protocol !==
-        'file:'
-    ) {
-      navigator.serviceWorker
-        .register('sw.js')
-        .catch(function (error) {
-          console.warn(
-            'Service worker não registrado:',
-            error
-          );
-        });
-    }
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
   }
 })();
