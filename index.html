@@ -2,30 +2,15 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8">
-
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
-    >
-
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#f58220">
-
-    <meta
-      name="description"
-      content="Sistema de controle de retirada de alimentos do Almoço Junino da Sorri Bauru."
-    >
-
-    <title>Retirada de Alimentos | Sorri Bauru</title>
+    <meta name="description" content="Controle de entrada do Festival de Música 2026 da Sorri Bauru.">
+    <title>Entrada do Festival de Música | Sorri Bauru</title>
 
     <link rel="manifest" href="manifest.webmanifest">
-
-    <link
-      rel="icon"
-      href="assets/icons/icon.svg"
-      type="image/svg+xml"
-    >
-
+    <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/theatre.css">
   </head>
 
   <body>
@@ -34,379 +19,161 @@
         <div class="institutional-banner">
           <img
             src="assets/logo/sorri-bauru-header.png"
-            alt="Sorri Bauru. Há 50 anos, conectando propósito a resultados."
+            alt="Sorri Bauru"
             class="institutional-banner-image"
           >
         </div>
 
         <div class="app-identification">
-          <h1>Retirada de alimentos</h1>
-          <p>Almoço Junino 2026</p>
+          <h1>Controle de entrada</h1>
+          <p>8º Festival de Música • 2026</p>
         </div>
       </header>
 
       <main id="app" class="app-main">
-        <section
-          id="screen-idle"
-          class="screen screen-active"
-          aria-labelledby="initial-title"
-        >
-          <div class="entry-panel">
+        <section id="screen-idle" class="screen screen-active">
+          <div class="entry-panel theatre-entry-panel">
             <div class="entry-copy">
-              <span class="screen-eyebrow">
-                Identificação
-              </span>
-
-              <h2 id="initial-title">
-                Digite a matrícula
-              </h2>
-
-              <p>
-                Informe o código numérico do participante.
-              </p>
+              <span class="screen-eyebrow">Convite</span>
+              <h2>Leia o QR Code</h2>
+              <p>Use a câmera ou informe manualmente o ID do convite.</p>
             </div>
 
-            <label
-              class="sr-only"
-              for="matricula-input"
-            >
-              Matrícula
-            </label>
-
-            <input
-              id="matricula-input"
-              class="matricula-input"
-              inputmode="numeric"
-              autocomplete="off"
-              pattern="[0-9]*"
-              maxlength="12"
-              aria-describedby="matricula-help"
-            >
-
-            <p
-              id="matricula-help"
-              class="sr-only"
-            >
-              Digite apenas números. A matrícula será preenchida com zeros à
-              esquerda.
-            </p>
-
-            <div
-              id="display-matricula"
-              class="matricula-display"
-              aria-live="polite"
-            >
-              000000
-            </div>
-
-            <div
-              class="keypad"
-              aria-label="Teclado numérico"
-            >
-              <button
-                class="keypad-key"
-                type="button"
-                data-digit="1"
-                aria-label="Número 1"
-              >
-                1
-              </button>
-
-              <button
-                class="keypad-key"
-                type="button"
-                data-digit="2"
-                aria-label="Número 2"
-              >
-                2
-              </button>
-
-              <button
-                class="keypad-key"
-                type="button"
-                data-digit="3"
-                aria-label="Número 3"
-              >
-                3
-              </button>
-
-              <button
-                class="keypad-key"
-                type="button"
-                data-digit="4"
-                aria-label="Número 4"
-              >
-                4
-              </button>
-
-              <button
-                class="keypad-key"
-                type="button"
-                data-digit="5"
-                aria-label="Número 5"
-              >
-                5
-              </button>
-
-              <button
-                class="keypad-key"
-                type="button"
-                data-digit="6"
-                aria-label="Número 6"
-              >
-                6
-              </button>
-
-              <button
-                class="keypad-key"
-                type="button"
-                data-digit="7"
-                aria-label="Número 7"
-              >
-                7
-              </button>
-
-              <button
-                class="keypad-key"
-                type="button"
-                data-digit="8"
-                aria-label="Número 8"
-              >
-                8
-              </button>
-
-              <button
-                class="keypad-key"
-                type="button"
-                data-digit="9"
-                aria-label="Número 9"
-              >
-                9
-              </button>
-
-              <button
-                id="btn-clear"
-                class="keypad-action"
-                type="button"
-              >
-                Limpar
-              </button>
-
-              <button
-                class="keypad-key"
-                type="button"
-                data-digit="0"
-                aria-label="Número 0"
-              >
-                0
-              </button>
-
-              <button
-                id="btn-backspace"
-                class="keypad-action"
-                type="button"
-                aria-label="Apagar último dígito"
-              >
-                Apagar
-              </button>
-            </div>
-
-            <button
-              id="btn-search"
-              class="primary-button"
-              type="button"
-            >
-              Consultar participante
+            <button id="btn-open-qr" class="primary-button theatre-primary" type="button">
+              Ler QR Code
             </button>
 
-            <button
-              id="btn-open-qr"
-              class="link-button"
-              type="button"
+            <div class="manual-divider"><span>ou</span></div>
+
+            <label class="field-label" for="id-qr-input">ID do convite</label>
+            <input
+              id="id-qr-input"
+              class="theatre-input"
+              inputmode="numeric"
+              autocomplete="off"
+              maxlength="40"
+              placeholder="Digite ou cole o ID_QR"
             >
-              Ler QR Code
+
+            <button id="btn-search" class="secondary-button theatre-secondary" type="button">
+              Consultar convite
             </button>
           </div>
         </section>
 
-        <section
-          id="screen-loading"
-          class="screen loading-screen"
-          aria-live="assertive"
-          aria-busy="true"
-        >
-          <div
-            class="spinner"
-            aria-hidden="true"
-          ></div>
-
-          <h2>
-            Consultando participante...
-          </h2>
+        <section id="screen-loading" class="screen loading-screen" aria-live="assertive" aria-busy="true">
+          <div class="spinner" aria-hidden="true"></div>
+          <h2>Consultando convite...</h2>
         </section>
 
-        <section
-          id="screen-participant"
-          class="screen"
-          aria-labelledby="participant-name"
-        >
-          <article class="participant-card">
-            <span class="card-eyebrow">
-              Participante
-            </span>
+        <section id="screen-participant" class="screen" aria-labelledby="participant-name">
+          <article class="participant-card theatre-participant-card">
+            <div class="participant-heading">
+              <div>
+                <span class="card-eyebrow">Responsável pelo convite</span>
+                <h2 id="participant-name"></h2>
+                <p id="participant-type" class="participant-subtitle"></p>
+              </div>
+              <div id="status-badge" class="status-badge"></div>
+            </div>
 
-            <h2 id="participant-name"></h2>
+            <div id="authority-alert" class="theatre-alert authority-alert" hidden>
+              <strong>⭐ AUTORIDADE / PARCEIRO</strong>
+              <span id="authority-note"></span>
+            </div>
 
-            <p id="participant-matricula"></p>
+            <div id="support-alert" class="theatre-alert support-alert" hidden>
+              <strong>♿ NECESSITA APOIO / ADAPTAÇÃO</strong>
+              <span id="support-note"></span>
+            </div>
+
+            <dl class="participant-details">
+              <div>
+                <dt>Telefone</dt>
+                <dd id="participant-phone">—</dd>
+              </div>
+              <div>
+                <dt>Participante da peça</dt>
+                <dd id="participant-user">—</dd>
+              </div>
+            </dl>
           </article>
 
-          <div
-            id="items-container"
-            class="items-container"
-          ></div>
+          <div class="ticket-grid">
+            <article class="ticket-card" data-ticket="adultos">
+              <span class="ticket-label">Adultos</span>
+              <div class="ticket-stats">
+                <span><small>Autorizados</small><strong id="adult-authorized">0</strong></span>
+                <span><small>Já entraram</small><strong id="adult-used">0</strong></span>
+                <span><small>Restantes</small><strong id="adult-remaining">0</strong></span>
+              </div>
+              <div class="quantity-control">
+                <button type="button" class="quantity-button" data-action="minus" data-type="adultos">−</button>
+                <output id="adult-now" class="quantity-value">0</output>
+                <button type="button" class="quantity-button" data-action="plus" data-type="adultos">+</button>
+              </div>
+            </article>
+
+            <article class="ticket-card" data-ticket="menores">
+              <span class="ticket-label">Menores</span>
+              <div class="ticket-stats">
+                <span><small>Autorizados</small><strong id="minor-authorized">0</strong></span>
+                <span><small>Já entraram</small><strong id="minor-used">0</strong></span>
+                <span><small>Restantes</small><strong id="minor-remaining">0</strong></span>
+              </div>
+              <div class="quantity-control">
+                <button type="button" class="quantity-button" data-action="minus" data-type="menores">−</button>
+                <output id="minor-now" class="quantity-value">0</output>
+                <button type="button" class="quantity-button" data-action="plus" data-type="menores">+</button>
+              </div>
+            </article>
+          </div>
+
+          <div class="entry-actions">
+            <button id="btn-cancel-entry" class="secondary-button" type="button">Cancelar</button>
+            <button id="btn-confirm-open" class="primary-button" type="button">Confirmar entrada</button>
+          </div>
         </section>
 
-        <section
-          id="screen-result"
-          class="screen"
-          aria-live="polite"
-        >
-          <article
-            id="result-card"
-            class="result-card"
-          >
-            <div
-              id="result-icon"
-              class="result-icon"
-              aria-hidden="true"
-            ></div>
-
+        <section id="screen-result" class="screen" aria-live="polite">
+          <article id="result-card" class="result-card">
+            <div id="result-icon" class="result-icon" aria-hidden="true"></div>
             <h2 id="result-title"></h2>
-
             <p id="result-message"></p>
-
-            <div
-              id="result-details"
-              class="result-details"
-            ></div>
-
-            <button
-              id="btn-new-search"
-              class="primary-button"
-              type="button"
-            >
-              Nova consulta
-            </button>
+            <div id="result-details" class="result-details"></div>
+            <button id="btn-new-search" class="primary-button" type="button">Novo convite</button>
           </article>
         </section>
       </main>
     </div>
 
-    <div
-      id="selection-bar"
-      class="selection-bar"
-      hidden
-    >
-      <span id="selection-count">
-        0 itens selecionados
-      </span>
-
-      <button
-        id="btn-confirm-open"
-        class="primary-button compact"
-        type="button"
-      >
-        Confirmar retirada
-      </button>
-    </div>
-
-    <div
-      id="confirmation-sheet"
-      class="sheet-backdrop"
-      hidden
-    >
-      <section
-        class="bottom-sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="confirmation-title"
-      >
-        <h2 id="confirmation-title">
-          Confirmar retirada?
-        </h2>
-
+    <div id="confirmation-sheet" class="sheet-backdrop" hidden>
+      <section class="bottom-sheet" role="dialog" aria-modal="true" aria-labelledby="confirmation-title">
+        <h2 id="confirmation-title">Confirmar entrada?</h2>
         <p id="confirmation-participant"></p>
-
         <ul id="confirmation-list"></ul>
-
         <div class="sheet-actions">
-          <button
-            id="btn-cancel-confirmation"
-            class="secondary-button"
-            type="button"
-          >
-            Cancelar
-          </button>
-
-          <button
-            id="btn-confirm-save"
-            class="primary-button"
-            type="button"
-          >
-            Confirmar retirada
-          </button>
+          <button id="btn-cancel-confirmation" class="secondary-button" type="button">Voltar</button>
+          <button id="btn-confirm-save" class="primary-button" type="button">Registrar entrada</button>
         </div>
       </section>
     </div>
 
-    <div
-      id="qr-sheet"
-      class="sheet-backdrop"
-      hidden
-    >
-      <section
-        class="bottom-sheet qr-sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="qr-title"
-      >
-        <h2 id="qr-title">
-          Leitura por QR Code
-        </h2>
-
-        <div
-          id="qr-reader"
-          class="qr-reader"
-        ></div>
-
-        <p
-          id="qr-message"
-          class="muted-text"
-          aria-live="polite"
-        ></p>
-
+    <div id="qr-sheet" class="sheet-backdrop" hidden>
+      <section class="bottom-sheet qr-sheet" role="dialog" aria-modal="true" aria-labelledby="qr-title">
+        <h2 id="qr-title">Leitura por QR Code</h2>
+        <div id="qr-reader" class="qr-reader"></div>
+        <p id="qr-message" class="muted-text" aria-live="polite"></p>
         <div class="sheet-actions">
-          <button
-            id="btn-close-qr"
-            class="secondary-button"
-            type="button"
-          >
-            Fechar leitor
-          </button>
+          <button id="btn-close-qr" class="secondary-button" type="button">Fechar leitor</button>
         </div>
       </section>
     </div>
 
-    <div
-      id="toast-region"
-      class="toast-region"
-      aria-live="assertive"
-      aria-atomic="true"
-    ></div>
+    <div id="toast-region" class="toast-region" aria-live="assertive" aria-atomic="true"></div>
 
     <script src="js/config.js"></script>
     <script src="js/api.js"></script>
-    <script src="js/mobile-touch.js"></script>
     <script src="js/app.js"></script>
   </body>
 </html>
